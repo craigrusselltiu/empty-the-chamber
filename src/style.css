@@ -1,0 +1,195 @@
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: #0d0809;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+#stage {
+  position: absolute;
+  inset: 0;
+}
+#gl,
+#hud {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+#ui {
+  position: absolute;
+  inset: 0;
+  font-family: 'Silkscreen', monospace;
+  color: #f1dfb8;
+  pointer-events: none;
+}
+#ui > * {
+  pointer-events: auto;
+}
+.screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: safe center;
+  overflow-y: auto;
+  gap: 1.2em;
+  background: rgba(20, 10, 14, 0.55);
+  text-align: center;
+  padding: 2em;
+}
+.screen.clear {
+  background: none;
+}
+.title {
+  font-size: 3.2em;
+  font-weight: 700;
+  color: #ffb45a;
+  text-shadow: 0.08em 0.08em 0 #3a1608, 0 0 0.6em rgba(255, 140, 50, 0.4);
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+.sub {
+  color: #d8b48a;
+  font-size: 1em;
+}
+.row {
+  display: flex;
+  gap: 1em;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+button,
+.card {
+  font-family: inherit;
+  font-size: 1em;
+  color: #f1dfb8;
+  background: #4a2c1c;
+  border: 0.18em solid #1d0f08;
+  box-shadow: inset 0 0 0 0.12em #8a5a34, 0.2em 0.2em 0 #1d0f08;
+  padding: 0.6em 1.2em;
+  cursor: pointer;
+}
+button:hover,
+button.sel,
+.card:hover,
+.card.sel {
+  background: #7a3e1e;
+  color: #fff3d8;
+}
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.card {
+  width: 13em;
+  min-height: 15em;
+  padding: 0.9em;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+  text-align: left;
+}
+.card .kind {
+  font-size: 0.75em;
+  color: #e09a50;
+}
+.card .name {
+  font-size: 1.15em;
+  font-weight: 700;
+  color: #ffd890;
+}
+.card .lvl {
+  font-size: 0.8em;
+  color: #9ad0c0;
+}
+.card .desc {
+  font-size: 0.8em;
+  line-height: 1.35;
+  color: #f1dfb8;
+}
+.card .tags {
+  font-size: 0.7em;
+  color: #c79ad8;
+  margin-top: auto;
+}
+.card .flavor {
+  font-size: 0.7em;
+  color: #b8987a;
+  font-style: italic;
+}
+.card.evo {
+  box-shadow: inset 0 0 0 0.12em #ffd04a, 0.2em 0.2em 0 #1d0f08;
+}
+.card.wild {
+  background: #2a1a3a;
+}
+.card.locked {
+  filter: grayscale(1) brightness(0.55);
+  cursor: default;
+}
+.card img.portrait {
+  width: 128px;
+  height: 128px;
+  image-rendering: pixelated;
+  align-self: center;
+  object-fit: none;
+}
+.small {
+  font-size: 0.75em;
+  color: #c8a882;
+}
+.gold {
+  color: #ffd04a;
+}
+.stats {
+  font-size: 0.85em;
+  line-height: 1.6;
+}
+.shop {
+  display: grid;
+  grid-template-columns: repeat(3, 15em);
+  gap: 0.8em;
+}
+.shop button {
+  text-align: left;
+  font-size: 0.8em;
+}
+@media (max-width: 700px) {
+  .shop {
+    grid-template-columns: repeat(2, 13em);
+  }
+  .card {
+    width: 10em;
+    min-height: 12em;
+  }
+}
+
+.chars .card {
+  width: 10.5em;
+  min-height: 0;
+  font-size: 0.85em;
+}
+.portrait {
+  width: 96px;
+  height: 96px;
+  align-self: center;
+  image-rendering: pixelated;
+  background-repeat: no-repeat;
+}
+.portrait.locked {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3em;
+  background: #120a0a;
+  color: #3a2a2a;
+}
