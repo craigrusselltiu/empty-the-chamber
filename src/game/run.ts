@@ -4,7 +4,7 @@ import { Player } from './player';
 import { Rng } from '../rng';
 import { CharDef } from '../data/characters';
 import { ENEMIES, enemyIndex } from '../data/enemies';
-import { EVENTS, MIX, RUN_LENGTH, MAX_ENEMIES, hpScale, dmgScale, spawnRate } from '../data/waves';
+import { EVENTS, MIX, RUN_LENGTH, MAX_ENEMIES, hpScale, dmgScale, spawnRate, baseRate } from '../data/waves';
 import { WeaponDef, weaponById, MAX_WEAPON_LEVEL } from '../data/weapons';
 import { computeStats, Stats } from './stats';
 import { K, F, P, PMAX, QMAX } from './projectiles';
@@ -279,7 +279,7 @@ export class Run {
       const n = e.query(x, z, 2.5);
       for (let k = 0; k < n; k++) {
         const j = e.hits[k];
-        e.poison[j] = Math.max(e.poison[j], 12);
+        e.poison[j] = Math.max(e.poison[j], 0.63);
         e.poisonT[j] = 3;
       }
       this.w.fx.ring(x, z, 0.3, 2.5, 0.4, 0x60ff40);
@@ -287,7 +287,9 @@ export class Run {
     // bookkeeping
     this.kills++;
     if (this.time >= 600) this.nightKills++;
-    this.ult = Math.min(this.ch.ultCharge, this.ult + Math.max(0.5, def.xp * 0.6) + this.stats.ultPerKill * 0.5);
+    // per-kill charge shrinks as the spawn rate climbs, so the ult charges at about the same pace all run
+    const pace = baseRate(0) / baseRate(this.time);
+    this.ult = Math.min(this.ch.ultCharge, this.ult + (Math.max(0.5, def.xp * 0.6) + this.stats.ultPerKill * 0.5) * pace);
     if (this.trait('Outlaw') >= 2) {
       this.outlawStacks = Math.min(10, this.outlawStacks + 1);
       this.outlawT = 4;
@@ -565,7 +567,7 @@ export class Run {
       w.pl.flashColor.setRGB(1, 0.85, 0.5);
     }
     if (this.banner.t > 0) this.banner.t -= realDt;
-    w.fx.update(dt);
+    w.fx.update(dt, realDt);
     w.pl.shake = Math.max(0, w.pl.shake - realDt * 2.5);
     w.pl.flash = Math.max(0, w.pl.flash - realDt * 2);
   }

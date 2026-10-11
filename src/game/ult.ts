@@ -146,7 +146,6 @@ export class Ult {
       const d = Math.hypot(dx, dz) || 1;
       const ux = dx / d;
       const uz = dz / d;
-      p.faceWorld(ux, uz, run.w.pl);
       p.sprite.play('shoot', true);
       // pierce everything on the line
       const ids: number[] = [];
@@ -160,7 +159,7 @@ export class Ult {
         if (!e.alive[j]) continue;
         run.hitEnemy(j, j === i ? dmg * 2 : dmg, 2 /* crit */, -1, ux * 10, uz * 10);
       }
-      run.w.fx.beam(p.x, 1.2, p.z, p.x + ux * 24, 1.2, p.z + uz * 24, 0.35, 0.4, 0xffe0a0);
+      run.w.fx.beam(p.x, 1.2, p.z, p.x + ux * 24, 1.2, p.z + uz * 24, 0.12, 0.35, 0xffe0a0);
       run.w.light.flash(p.x, 1.4, p.z, GOLD, 60, 0.3);
       run.w.pl.shake = 0.8;
       sfx.finalShot();

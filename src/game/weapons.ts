@@ -91,7 +91,6 @@ function aim(run: Run, target: number) {
   const dx = e.x[target] - p.x;
   const dz = e.z[target] - p.z;
   const d = Math.hypot(dx, dz) || 1;
-  p.faceWorld(dx, dz, run.w.pl);
   return [dx / d, dz / d] as const;
 }
 

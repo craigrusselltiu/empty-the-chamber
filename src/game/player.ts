@@ -99,7 +99,7 @@ export class Player {
     this.yaw = Math.atan2(this.lx, this.lz);
   }
 
-  // Face a world direction (e.g. aim) without moving.
+  // Face a world direction without moving (shooting never turns the player; it keeps facing where it moves).
   faceWorld(dx: number, dz: number, pl: Pipeline) {
     const sx = dx * pl.camRight.x + dz * pl.camRight.z;
     const sy = (dx * pl.camFwdGround.x + dz * pl.camFwdGround.z) * 0.5;

@@ -187,14 +187,22 @@ export class Pickups {
   }
 
   add(kind: number, x: number, z: number, val: number) {
-    if (this.count >= QMAX - 20 && kind <= P.XP25) {
-      // pool nearly full: fold the XP into an existing casing
-      for (let i = 0; i < QMAX; i++)
-        if (this.alive[i] && this.kind[i] <= P.XP25) {
-          this.val[i] += val;
-          this.kind[i] = P.XP25;
-          return;
-        }
+    if (this.count >= QMAX) {
+      // pool full: recycle the XP or coin furthest from the new drop (left behind as the player moved on);
+      // its XP rides along with a new XP drop so none is lost
+      let far = -1;
+      let fd = -1;
+      for (let i = 0; i < QMAX; i++) {
+        if (this.kind[i] > P.COIN) continue;
+        const d = (this.x[i] - x) ** 2 + (this.z[i] - z) ** 2;
+        if (d > fd) (fd = d), (far = i);
+      }
+      if (far < 0) return;
+      if (kind <= P.XP25 && this.kind[far] <= P.XP25) {
+        val += this.val[far];
+        kind = val >= 25 ? P.XP25 : val >= 5 ? P.XP5 : P.XP1;
+      }
+      this.remove(far);
     }
     for (let n = 0; n < QMAX; n++) {
       const i = this.cursor;

@@ -2,7 +2,7 @@
 
 A Vampire Survivors-style horde survival game set in the world of [One More In The Chamber](https://github.com/craigrusselltiu/one-more-in-the-chamber). Fixed isometric camera, a PS1-era low-poly town at full resolution with pixel-art characters and effects, modern dusk lighting. Survive the Dusty Trail, an endless desert of trail towns that is new every run, from golden hour to midnight.
 
-Version: v0.2.0 (browser prototype)
+Version: v0.2.1 (browser prototype)
 
 ## Play
 

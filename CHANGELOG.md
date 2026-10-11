@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## v0.2.1 - 2026-10-12
+
+### Fixed
+
+- Drops no longer stop after travelling far: when the pickup pool is full, the casing or coin left furthest behind is recycled (its XP carried into the new casing) instead of new XP being folded into a casing far away.
+- The ultimate no longer charges faster and faster as the run goes on: kill charge scales down as the spawn rate climbs.
+- One poison value (Sidewinder Fangs' spread) missed by the damage rescale.
+
+### Changed
+
+- Shooting no longer turns the player toward the target (Deadeye included); the character keeps facing the way it moves.
+- Deadeye's shots are thinner lines that start fading the moment they fire, in real time, so the slow motion no longer stretches them.
+
 ## v0.2.0 - 2026-10-12
 
 ### Added

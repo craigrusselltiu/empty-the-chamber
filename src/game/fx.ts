@@ -121,7 +121,8 @@ export class Fx {
     this.nums.push({ x, y, z, text, color, life, max: life, scale, vy: 2.2 });
   }
 
-  update(dt: number) {
+  // dt: game time; real: wall time (beams fade in real time, so slow motion doesn't stretch them)
+  update(dt: number, real = dt) {
     let n = 0;
     const im = this.pm;
     const col = im.instanceColor!.array as Float32Array;
@@ -166,7 +167,7 @@ export class Fx {
     }
     for (const b of this.beams) {
       if (b.life <= 0) continue;
-      b.life -= dt;
+      b.life -= real;
       if (b.life <= 0) {
         b.mesh.visible = false;
         continue;

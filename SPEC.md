@@ -15,8 +15,8 @@ A horde-survival spin-off of One More In The Chamber (OMITC). Same Frontier, sam
 ## 2. Core loop
 
 - Runs last 15:00 (`RUN_LENGTH` in `src/data/waves.ts`). Move with WASD, the arrow keys, a gamepad left stick or a touch joystick (left half of the screen). Weapons auto-fire at the nearest enemy, or in the facing direction when nothing is in range.
-- Ultimate: Space, gamepad A/RT, or tap the ULT button. It charges from kills (+1 per XP value) and from damage taken (+2 per HP).
-- Kills drop **brass casings** (XP: small 1, medium 5, large 25) and rarely **gold coins** (1.5%). Mules, elites and the boss always drop gold. Pickups inside the magnet radius fly to the player.
+- Ultimate: Space, gamepad A/RT, or tap the ULT button. It charges from kills (0.6 per XP value, at least 0.5) and from damage taken (0.25 per HP). Kill charge is scaled by the opening spawn rate over the current one (its trend, without the swells), so the ult charges at about the same pace all run instead of speeding up as the horde grows.
+- Kills drop **brass casings** (XP: small 1, medium 5, large 25) and rarely **gold coins** (1.5%). Mules, elites and the boss always drop gold. Pickups inside the magnet radius fly to the player. Pickups are pooled (1500); when the pool is full, the casing or coin furthest from a new drop is recycled, and its XP rides along with a new casing, so drops never stop however far the player travels.
 - **Level up:** pick 1 of 3. An offer can be a new weapon, a weapon level-up, a new artifact or an artifact level-up. Each run gives 3 rerolls, 3 skips and 3 banishes (meta upgrades add more). Skipping grants a little gold. Banishing removes that option for the rest of the run. When nothing is left to offer, the choices are "Whiskey" (heal 30) and "Gold Pouch" (+25 gold).
 - **Slots:** 4 weapons and 6 artifacts. Weapons reach level 5 and artifacts level 3.
 - **Evolutions:** a level 5 weapon plus its paired artifact (any level). The next chest evolves the weapon instead of granting random level-ups.
@@ -52,9 +52,9 @@ All characters have 100 HP unless noted. Character stats live in `src/data/chara
 - **Weapon: Six-Shooter.** Chamber 6, reload 1.1s. A slow, heavy single shot (0.44s between shots) at the nearest enemy.
 - **Passive:** none.
 - **Starting artifact:** Bamboo Canteen (Saloon Keeper): regenerate HP over time.
-- **Ultimate: Deadeye** (charge 60). Time slows to 12% for about 1.75s. Crosshairs lock onto the 6 toughest enemies within 15 units (by current HP, bosses first; with fewer than 6 it cycles through them), and 6 piercing shots fire 0.2s apart, one per chamber. A shot whose target already died goes to the toughest enemy still standing nearby. The ult ends with a full-screen white flash.
+- **Ultimate: Deadeye** (charge 60). Time slows to 12% for about 1.75s. Crosshairs lock onto the 6 toughest enemies within 15 units (by current HP, bosses first; with fewer than 6 it cycles through them), and 6 piercing shots fire 0.2s apart, one per chamber. A shot whose target already died goes to the toughest enemy still standing nearby. Each shot draws a thin line that starts fading at once, on real time (the slow motion does not stretch it). The ult ends with a full-screen white flash.
 - Sprite anims: `idle`, `run`, `stop` (settle when movement ends), `shoot` (plays as a short interrupt on Final Shots and on each Deadeye shot), `hit`.
-- **3D view (V):** the player is drawn by default as the rigged PS1 model the sheets were rendered from (`public/models/<id>.glb`, exported from the pseudo-pixel `.blend`); V swaps to the sprite and back. It plays the same actions, follows the sprite's animation clock, turns smoothly to face movement and aim, and is rendered in the pixel layer like the sprites.
+- **3D view (V):** the player is drawn by default as the rigged PS1 model the sheets were rendered from (`public/models/<id>.glb`, exported from the pseudo-pixel `.blend`); V swaps to the sprite and back. It plays the same actions, follows the sprite's animation clock, turns smoothly to face its movement (shooting, Deadeye included, never turns the player), and is rendered in the pixel layer like the sprites.
 
 ### "Slick" Reno (raccoon card sharp). Unlocked by holding 500 gold at once during a run.
 

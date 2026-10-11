@@ -3,8 +3,12 @@ export const RUN_LENGTH = 900; // seconds
 
 // Enemies spawned per second at time t (seconds), before the live cap.
 export function spawnRate(t: number) {
-  const k = Math.min(1, t / RUN_LENGTH);
-  return (1.5 + 30 * Math.pow(k, 1.5)) * (1 + 0.3 * Math.sin(t / 22));
+  return baseRate(t) * (1 + 0.3 * Math.sin(t / 22));
+}
+
+// The spawn rate's trend, without the swells.
+export function baseRate(t: number) {
+  return 1.5 + 30 * Math.pow(Math.min(1, t / RUN_LENGTH), 1.5);
 }
 
 // HP multiplier at time t.
