@@ -49,6 +49,13 @@ body {
 .screen.clear {
   background: none;
 }
+.version {
+  position: absolute;
+  right: 16px;
+  bottom: 12px;
+  opacity: 0.6;
+}
+
 .title {
   font-size: 3.2em;
   font-weight: 700;

@@ -1,8 +1,8 @@
 # Empty the Chamber
 
-A Vampire Survivors-style horde survival game set in the world of [One More In The Chamber](https://github.com/craigrusselltiu/one-more-in-the-chamber). Fixed isometric camera, PS1-era low-poly geometry, modern dusk lighting. Survive the Dusty Trail from golden hour to midnight.
+A Vampire Survivors-style horde survival game set in the world of [One More In The Chamber](https://github.com/craigrusselltiu/one-more-in-the-chamber). Fixed isometric camera, a PS1-era low-poly town at full resolution with pixel-art characters and effects, modern dusk lighting. Survive the Dusty Trail, an endless desert of trail towns that is new every run, from golden hour to midnight.
 
-Version: v0.1.0 (browser prototype)
+Version: v0.2.0 (browser prototype)
 
 ## Play
 
@@ -21,12 +21,13 @@ Then open the URL Vite prints (`http://localhost:5173/empty-the-chamber/`).
 | Ultimate | Space | A / RT | ULT button |
 | Pause | Esc / P | Start | - |
 | Level-up pick | 1-4, arrows + Enter, or click | d-pad + A | Tap |
+| Toggle sprite / 3D player | V | - | - |
 
 Weapons fire on their own. Your guns have a chamber: the last round in the cylinder is a **Final Shot** that hits twice as hard, and the reload gap after it is when you are most exposed. Build around it.
 
 ## Characters
 
-- **Rust** (red panda gunslinger): Six-Shooter, Bounty executions, Deadeye ultimate. Unlocked from the start.
+- **Rust** (red panda gunslinger): Six-Shooter, Deadeye ultimate (six piercing shots). Unlocked from the start.
 - **"Slick" Reno** (raccoon card sharp): Poker Chips with 50/50 hits, Wild Card level-ups, False Shuffle ultimate. Unlock by holding 500 gold in a single run.
 - Rudy, Reap, Rita and Riff appear on the select screen, locked, with their unlock hints.
 

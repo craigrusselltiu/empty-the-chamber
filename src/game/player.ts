@@ -1,10 +1,14 @@
 import * as THREE from 'three';
 import { Billboard, Sheet } from '../render/sprite';
+import { CharModel } from '../render/model';
 import { Pipeline } from '../render/pipeline';
 import { Town } from '../world/town';
 import { collide } from '../world/collide';
 
 const tmp = new THREE.Vector3();
+
+// Shared view toggle: pixel-art sprite sheets or the 3D model they were rendered from.
+export const look = { model: true };
 
 export class Player {
   x = 0;
@@ -20,6 +24,11 @@ export class Player {
   fwx = 0;
   fwz = 1;
   sprite: Billboard;
+  model: CharModel;
+  // facing for the 3D model (world space, follows movement and aim)
+  lx = 0;
+  lz = 1;
+  private yaw = 0;
   shadow: THREE.Mesh;
   hasStop: boolean;
   hasHit: boolean;
@@ -27,8 +36,11 @@ export class Player {
   knockX = 0;
   knockZ = 0;
 
-  constructor(sheet: Sheet, outline: THREE.Color) {
+  constructor(sheet: Sheet, model: CharModel, outline: THREE.Color, size: number) {
     this.sprite = new Billboard(sheet, outline);
+    this.sprite.mesh.scale.setScalar(size);
+    this.model = model;
+    model.root.scale.setScalar(0.85 * size); // sheets were rendered at 17 px per unit, the game draws 20
     this.hasStop = !!sheet.stop;
     this.hasHit = !!sheet.hit;
     this.shadow = new THREE.Mesh(
@@ -36,7 +48,7 @@ export class Player {
       new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.4, depthWrite: false }),
     );
     this.shadow.rotation.x = -Math.PI / 2;
-    this.shadow.scale.set(1, 0.8, 1);
+    this.shadow.scale.set(size, 0.8 * size, 1);
   }
 
   // mx/my: screen-space input. speed in units/s.
@@ -63,8 +75,8 @@ export class Player {
       this.fsx = mx;
       this.fsy = my * 0.5; // ground-plane up is foreshortened on screen
       const l = Math.hypot(wx, wz) || 1;
-      this.fwx = wx / l;
-      this.fwz = wz / l;
+      this.fwx = this.lx = wx / l;
+      this.fwz = this.lz = wz / l;
       this.runTime += dt;
       if (s.oneShot === 'stop') s.oneShot = null;
       s.play('run');
@@ -81,18 +93,40 @@ export class Player {
     this.flash = Math.max(0, this.flash - dt * 6);
   }
 
+  // Face a ground direction at once (no turn), e.g. toward the intro camera.
+  faceNow(dx: number, dz: number, pl: Pipeline) {
+    this.faceWorld(dx, dz, pl);
+    this.yaw = Math.atan2(this.lx, this.lz);
+  }
+
   // Face a world direction (e.g. aim) without moving.
   faceWorld(dx: number, dz: number, pl: Pipeline) {
     const sx = dx * pl.camRight.x + dz * pl.camRight.z;
     const sy = (dx * pl.camFwdGround.x + dz * pl.camFwdGround.z) * 0.5;
     this.sprite.dir = Billboard.dirFromScreen(sx, sy);
+    const l = Math.hypot(dx, dz) || 1;
+    this.lx = dx / l;
+    this.lz = dz / l;
   }
 
-  sync(pl: Pipeline, tint: THREE.Color) {
+  sync(pl: Pipeline, tint: THREE.Color, blink: boolean, dt: number) {
     const m = this.sprite.mesh;
     tmp.set(this.x, 0, this.z);
-    pl.snap(tmp);
-    m.position.copy(tmp).addScaledVector(pl.camBack, 1.2);
+    if (!pl.cine) pl.snap(tmp); // the snap grid only matches the gameplay camera
+    m.visible = !look.model;
+    const md = this.model;
+    md.root.visible = look.model && !blink;
+    if (look.model) {
+      md.root.position.copy(tmp);
+      let da = Math.atan2(this.lx, this.lz) - this.yaw;
+      da = Math.atan2(Math.sin(da), Math.cos(da));
+      this.yaw += da * Math.min(1, dt * 16);
+      md.root.rotation.y = this.yaw - Math.PI / 2; // the models face +x
+      md.pose(this.sprite.current, this.sprite.elapsed());
+      md.shade(this.flash);
+    }
+    this.sprite.mat.uniforms.uAlpha.value = blink ? 0.5 : 1;
+    m.position.copy(tmp).addScaledVector(pl.viewBack, 1.2);
     m.quaternion.copy(pl.camera.quaternion);
     this.sprite.mat.uniforms.uTint.value.copy(tint);
     this.sprite.mat.uniforms.uFlash.value = this.flash;

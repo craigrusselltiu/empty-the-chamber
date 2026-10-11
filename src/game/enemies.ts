@@ -2,13 +2,15 @@ import * as THREE from 'three';
 import { ENEMIES } from '../data/enemies';
 import { buildEnemyMesh } from './enemyMeshes';
 import { ps1 } from '../render/ps1';
-import { BOUND, Town } from '../world/town';
+import { CHAR_LAYER } from '../render/pipeline';
+import { Town } from '../world/town';
 import { collide } from '../world/collide';
 import { FlowField } from '../world/flowfield';
 
 export const MAX = 640;
 const CELL = 2;
-const GN = (BOUND * 2) / CELL;
+const GN = 64; // spatial hash cells per side; the grid wraps, so it covers an endless world
+const wrap = (c: number) => ((c % GN) + GN) % GN;
 
 // Struct-of-arrays enemy pool with a spatial hash and instanced rendering per type.
 export class Enemies {
@@ -24,7 +26,6 @@ export class Enemies {
   face = new Float32Array(MAX);
   hp = new Float32Array(MAX);
   maxHp = new Float32Array(MAX);
-  bounty = new Uint16Array(MAX);
   flash = new Float32Array(MAX);
   stun = new Float32Array(MAX);
   slow = new Float32Array(MAX);
@@ -67,6 +68,7 @@ export class Enemies {
       im.count = 0;
       im.frustumCulled = false;
       im.castShadow = def.elite || def.boss || false;
+      im.layers.set(CHAR_LAYER);
       this.meshes.push(im);
       this.flashAttr.push(fa);
       this.group.add(im);
@@ -98,7 +100,6 @@ export class Enemies {
     this.kx[i] = this.kz[i] = 0;
     this.dx[i] = this.dz[i] = 0;
     this.maxHp[i] = this.hp[i] = d.hp * hpMul * size * size;
-    this.bounty[i] = 0;
     this.flash[i] = 0;
     this.stun[i] = this.slow[i] = this.poison[i] = this.poisonT[i] = this.vuln[i] = 0;
     this.state[i] = 0;
@@ -134,22 +135,20 @@ export class Enemies {
   }
 
   private cellOf(x: number, z: number) {
-    const cx = Math.min(GN - 1, Math.max(0, Math.floor((x + BOUND) / CELL)));
-    const cz = Math.min(GN - 1, Math.max(0, Math.floor((z + BOUND) / CELL)));
-    return cz * GN + cx;
+    return wrap(Math.floor(z / CELL)) * GN + wrap(Math.floor(x / CELL));
   }
 
   // Fill `hits` with enemies whose body overlaps the circle. Returns the count.
   query(x: number, z: number, r: number) {
     let n = 0;
     const reach = r + 1.6;
-    const x0 = Math.max(0, Math.floor((x - reach + BOUND) / CELL));
-    const x1 = Math.min(GN - 1, Math.floor((x + reach + BOUND) / CELL));
-    const z0 = Math.max(0, Math.floor((z - reach + BOUND) / CELL));
-    const z1 = Math.min(GN - 1, Math.floor((z + reach + BOUND) / CELL));
+    const x0 = Math.floor((x - reach) / CELL);
+    const x1 = Math.min(x0 + GN - 1, Math.floor((x + reach) / CELL));
+    const z0 = Math.floor((z - reach) / CELL);
+    const z1 = Math.min(z0 + GN - 1, Math.floor((z + reach) / CELL));
     for (let cz = z0; cz <= z1; cz++)
       for (let cx = x0; cx <= x1; cx++) {
-        for (let i = this.head[cz * GN + cx]; i !== -1; i = this.next[i]) {
+        for (let i = this.head[wrap(cz) * GN + wrap(cx)]; i !== -1; i = this.next[i]) {
           const rr = r + this.radius(i);
           const ddx = this.x[i] - x;
           const ddz = this.z[i] - z;
@@ -242,14 +241,11 @@ export class Enemies {
       let sz = 0;
       if (!free) {
         const ri = this.radius(i);
-        const cx = Math.floor((this.x[i] + BOUND) / CELL);
-        const cz = Math.floor((this.z[i] + BOUND) / CELL);
+        const cx = Math.floor(this.x[i] / CELL);
+        const cz = Math.floor(this.z[i] / CELL);
         for (let oz = -1; oz <= 1; oz++)
           for (let ox = -1; ox <= 1; ox++) {
-            const nx = cx + ox;
-            const nz = cz + oz;
-            if (nx < 0 || nz < 0 || nx >= GN || nz >= GN) continue;
-            for (let j = this.head[nz * GN + nx]; j !== -1; j = this.next[j]) {
+            for (let j = this.head[wrap(cz + oz) * GN + wrap(cx + ox)]; j !== -1; j = this.next[j]) {
               if (j === i) continue;
               const ddx = this.x[i] - this.x[j];
               const ddz = this.z[i] - this.z[j];

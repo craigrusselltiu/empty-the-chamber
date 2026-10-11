@@ -9,7 +9,7 @@ import { WeaponDef, weaponById, MAX_WEAPON_LEVEL } from '../data/weapons';
 import { computeStats, Stats } from './stats';
 import { K, F, P, PMAX, QMAX } from './projectiles';
 import { MAX } from './enemies';
-import { BOUND } from '../world/town';
+import { Breakable, inBox } from '../world/town';
 import { collide } from '../world/collide';
 import { sfx } from '../audio';
 import { input } from '../input';
@@ -104,10 +104,10 @@ export class Run {
     this.seed = seed;
     this.rng = new Rng(seed);
     w.reset();
-    this.player = new Player(w.sheets[ch.id], new THREE.Color(...ch.outline));
-    this.player.x = 1;
-    this.player.z = 1;
-    w.scene.add(this.player.sprite.mesh, this.player.shadow);
+    this.player = new Player(w.sheets[ch.id], w.models[ch.id], new THREE.Color(...ch.outline), ch.size ?? 1);
+    this.player.x = w.town.start.x; // start on the first crossing
+    this.player.z = w.town.start.z;
+    w.scene.add(this.player.sprite.mesh, this.player.model.root, this.player.shadow);
     this.rerolls = 3 + rank('fortune');
     this.banishes = 3 + rank('slate');
     this.revives = rank('second_wind');
@@ -120,7 +120,7 @@ export class Run {
   }
 
   dispose() {
-    this.w.scene.remove(this.player.sprite.mesh, this.player.shadow);
+    this.w.scene.remove(this.player.sprite.mesh, this.player.model.root, this.player.shadow);
   }
 
   get elapsed01() {
@@ -218,9 +218,8 @@ export class Run {
     const m = 1 / def.mass;
     e.kx[i] += kbx * m;
     e.kz[i] += kbz * m;
-    if (flags & F.BOUNTY && this.ch.id === 'rust') e.bounty[i]++;
     if (flags & F.POISON || s.poisonDps > 0) {
-      const dps = (flags & F.EVO ? 10 : 0) + s.poisonDps + (flags & F.POISON ? 3 : 0);
+      const dps = (flags & F.EVO ? 0.53 : 0) + s.poisonDps + (flags & F.POISON ? 0.16 : 0);
       if (dps > 0) {
         e.poison[i] = Math.max(e.poison[i], dps);
         e.poisonT[i] = 3;
@@ -229,15 +228,8 @@ export class Run {
     // keep numbers readable in a crowd: drop plain hits when the screen is busy
     const big = flags & F.FINAL;
     if (big || crit || this.w.fx.nums.length < 60)
-      this.w.fx.num(e.x[i], 1.6 + def.r, e.z[i], Math.round(d).toString(), big ? '#ffa040' : crit ? '#ffe060' : '#ffffff', big && d >= 40 ? 2 : 1, big ? 0.9 : 0.6);
+      this.w.fx.num(e.x[i], 1.6 + def.r, e.z[i], Math.max(1, Math.round(d)) + (crit ? '!' : ''), big ? '#ffa040' : crit ? '#ffe060' : '#ffffff', big && d >= 2 ? 1.5 : 1, big ? 0.9 : 0.6);
     sfx.hit();
-    // Bounty execution (Rust)
-    if (e.hp[i] > 0 && this.ch.id === 'rust' && !def.boss && e.bounty[i] * 4 >= e.hp[i]) {
-      e.hp[i] = 0;
-      this.w.fx.num(e.x[i], 2.4 + def.r, e.z[i], 'BOUNTY', '#ffd04a', 1, 0.9);
-      if (this.rng.chance(0.05)) this.w.pick.add(P.COIN, e.x[i], e.z[i], 1);
-      this.w.fx.burst(e.x[i], 1, e.z[i], 10, 5, 0.5, 0.12, 3, 2.4, 0.5, () => this.rng.next());
-    }
     if (e.hp[i] <= 0) {
       this.kill(i, flags, weapon);
       return true;
@@ -335,22 +327,15 @@ export class Run {
     this.w.light.flash(x, 1.2, z, ORANGE, 30, 0.35);
     this.w.pl.shake = Math.max(this.w.pl.shake, 0.4);
     sfx.boom();
-    if (this.trait('Sapper') >= 3) this.zones.push({ x, z, r: rr * 0.6, life: 2, dps: 8, tick: 0 });
+    if (this.trait('Sapper') >= 3) this.zones.push({ x, z, r: rr * 0.6, life: 2, dps: 0.42, tick: 0 });
   }
 
   smashIn(x: number, z: number, r: number) {
-    const t = this.w.town;
-    for (let i = 0; i < t.breakables.length; i++) {
-      const b = t.breakables[i];
-      if (!b.alive || (b.x - x) ** 2 + (b.z - z) ** 2 > (r + b.r) ** 2) continue;
-      this.smash(i);
-    }
+    for (const b of this.w.town.breaksIn(x, z, r, hitBreaks)) this.smash(b);
   }
 
-  smash(i: number) {
-    const t = this.w.town;
-    const b = t.breakables[i];
-    t.smash(i);
+  smash(b: Breakable) {
+    this.w.town.smash(b);
     const r = this.rng;
     this.w.fx.burst(b.x, 0.6, b.z, 12, 5, 0.7, 0.18, 0.7, 0.45, 0.25, () => r.next());
     const k = r.next();
@@ -381,7 +366,6 @@ export class Run {
       p.knockZ += (dz / l) * 9;
     }
     this.w.pl.shake = Math.max(this.w.pl.shake, 0.5);
-    this.w.fx.num(p.x, 2.2, p.z, `-${Math.round(d)}`, '#ff5040', 1, 0.8);
     sfx.hurt();
     if (this.hp <= 0) {
       if (this.revives > 0) {
@@ -389,7 +373,7 @@ export class Run {
         this.hp = this.stats.maxHp * 0.5;
         this.iframes = 2;
         this.banner_('SECOND WIND', '', 1.5);
-        this.explode(p.x, p.z, 5, 200);
+        this.explode(p.x, p.z, 5, 10.5);
       } else {
         this.hp = 0;
         this.dead = true;
@@ -406,7 +390,6 @@ export class Run {
       const r = this.rng.range(r0, r1);
       const x = p.x + Math.cos(a) * r;
       const z = p.z + Math.sin(a) * r;
-      if (Math.abs(x) > BOUND - 1 || Math.abs(z) > BOUND - 1) continue;
       if (this.w.ff.blocked[this.w.ff.cell(x, z)]) continue;
       return [x, z];
     }
@@ -450,7 +433,7 @@ export class Run {
         const rr = 17 + (k % 3) * 1.5;
         const x = this.player.x + Math.cos(a) * rr;
         const z = this.player.z + Math.sin(a) * rr;
-        if (Math.abs(x) < BOUND - 1 && Math.abs(z) < BOUND - 1 && !this.w.ff.blocked[this.w.ff.cell(x, z)]) e.spawn(t, x, z, hpm);
+        if (!this.w.ff.blocked[this.w.ff.cell(x, z)]) e.spawn(t, x, z, hpm);
       }
       this.banner_('STAMPEDE!', '', 1.5);
       sfx.warn();
@@ -534,7 +517,7 @@ export class Run {
       const def = ENEMIES[e.type[i]];
       if (def.behaviour === 'fly' && e.y[i] > 2.2) continue;
       this.hurt(def.dmg * dmgScale(this.time), e.x[i], e.z[i], def.id);
-      if (this.trait('Sheriff') >= 3 && e.alive[i]) this.hitEnemy(i, def.dmg * 0.5, 0, -1);
+      if (this.trait('Sheriff') >= 3 && e.alive[i]) this.hitEnemy(i, (def.dmg * 0.5) / 19, 0, -1); // contact damage is on the player's HP scale
     }
 
     tickWeapons(this, dt);
@@ -693,13 +676,13 @@ export class Run {
       const x = pr.x[i];
       const z = pr.z[i];
       // walls
-      let wall = Math.abs(x) > BOUND + 2 || Math.abs(z) > BOUND + 2;
-      if (!wall)
-        for (const b of town.boxes)
-          if (x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1) {
-            wall = true;
-            break;
-          }
+      const near = town.at(x, z);
+      let wall = false;
+      for (const b of near.boxes)
+        if (inBox(b, x, z)) {
+          wall = true;
+          break;
+        }
       if (wall) {
         pr.alive[i] = 0;
         this.w.fx.burst(x, 1, z, 3, 3, 0.25, 0.08, 3, 2.2, 1, () => this.rng.next());
@@ -713,10 +696,9 @@ export class Run {
         continue;
       }
       // breakables
-      for (let b = 0; b < town.breakables.length; b++) {
-        const br = town.breakables[b];
+      for (const br of near.breaks) {
         if (br.alive && (br.x - x) ** 2 + (br.z - z) ** 2 < (br.r + pr.r[i]) ** 2) {
-          this.smash(b);
+          this.smash(br);
           break;
         }
       }
@@ -727,19 +709,12 @@ export class Run {
         if (!e.alive[j] || e.uid[j] === pr.lastHit[i]) continue;
         const def = ENEMIES[e.type[j]];
         if (def.behaviour === 'posse') continue;
-        if (pr.flags[i] & F.WHIFF) {
-          pr.alive[i] = 0;
-          this.w.fx.num(x, 1.8, z, 'WHIFF', '#9aa0b0', 1, 0.5);
-          sfx.whiff();
-          if (this.rng.chance(this.art('rigged_deck') ? 0.12 : 0.04)) this.w.pick.add(P.COIN, x, z, 1);
-          if (pr.flags[i] & F.EVO) this.explode(x, z, 1.8, pr.dmg[i] * 1.5, 0, pr.weapon[i], 0xc080ff);
-          break;
-        }
         const sp = Math.hypot(pr.vx[i], pr.vz[i]) || 1;
         this.hitEnemy(j, pr.dmg[i], pr.flags[i], pr.weapon[i], (pr.vx[i] / sp) * 4, (pr.vz[i] / sp) * 4);
         pr.lastHit[i] = e.uid[j];
         this.w.fx.burst(x, 1, z, 2, 3, 0.2, 0.07, 3, 2.4, 1.2, () => this.rng.next());
-        if (pr.flags[i] & F.FIRE && this.zones.length < 30) this.zones.push({ x, z, r: 1.1, life: 1.6, dps: 10, tick: 0 });
+        if (pr.kind[i] === K.CHIP && pr.flags[i] & F.EVO) this.explode(x, z, 1.6, pr.dmg[i] * 0.6, 0, pr.weapon[i], 0xc080ff); // House Always Wins
+        if (pr.flags[i] & F.FIRE && this.zones.length < 30) this.zones.push({ x, z, r: 1.1, life: 1.6, dps: 0.53, tick: 0 });
         if (pr.bounce[i] > 0) {
           const t = this.nearest(x, z, 7, e.uid[j]);
           if (t >= 0) {
@@ -925,12 +900,14 @@ export class Run {
     tint.r = Math.max(tint.r, 0.75);
     tint.g = Math.max(tint.g, 0.62);
     tint.b = Math.max(tint.b, 0.55);
-    p.sync(w.pl, tint);
-    p.sprite.mat.uniforms.uAlpha.value = this.iframes > 0 && !this.ultFx.active ? (Math.floor(this.time * 20) % 2 ? 1 : 0.5) : 1;
+    p.sync(w.pl, tint, this.iframes > 0 && !this.ultFx.active && Math.floor(this.time * 20) % 2 === 0, realDt);
+    w.town.updateHide(p.x, p.z, realDt, w.pl.viewBack);
     w.enemies.render(this.time);
     w.proj.render();
     w.pick.render(this.time);
   }
 }
+
+const hitBreaks: Breakable[] = [];
 
 export { WHITE };

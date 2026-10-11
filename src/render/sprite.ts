@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { PPU } from './pipeline';
+import { PPU, CHAR_LAYER } from './pipeline';
 
 // Pre-rendered pseudo-pixel sheets: 8 rows (E, NE, N, NW, W, SW, S, SE) x N frames of 64x64.
 export const ANCHOR_X = 32;
@@ -65,7 +65,7 @@ void main() {
   }
   if (uAlpha < 1.0) {
     // ordered dissolve, keeps alpha-tested look
-    vec2 p = mod(gl_FragCoord.xy, 2.0);
+    vec2 p = floor(mod(gl_FragCoord.xy, 2.0));
     float b = (p.x + p.y * 2.0 + 0.5) / 4.0;
     if (b > uAlpha) discard;
   }
@@ -109,6 +109,7 @@ export class Billboard {
     });
     this.mesh = new THREE.Mesh(geo, this.mat);
     this.mesh.frustumCulled = false;
+    this.mesh.layers.set(CHAR_LAYER);
     this.setFrame();
   }
 
@@ -148,6 +149,17 @@ export class Billboard {
       }
     }
     this.setFrame();
+  }
+
+  // Current animation name and time into it (ms), for the 3D model to follow.
+  get current() {
+    return this.oneShot ?? this.anim;
+  }
+  elapsed() {
+    const d = this.sheet[this.current].durations;
+    let ms = this.t;
+    for (let i = 0; i < this.frame; i++) ms += d[i];
+    return ms;
   }
 
   private setFrame() {

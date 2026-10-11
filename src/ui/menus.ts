@@ -1,3 +1,4 @@
+import { version } from '../../package.json';
 import { CHARACTERS } from '../data/characters';
 import { UPGRADES, upgradeCost } from '../data/meta';
 import { TRAITS, artifactById } from '../data/artifacts';
@@ -75,6 +76,7 @@ export function titleScreen(onPlay: () => void, onShop: () => void) {
     </div>
     <div class="small">WASD / ARROWS / STICK TO MOVE - WEAPONS FIRE THEMSELVES - SPACE FOR YOUR ULTIMATE - ESC TO PAUSE</div>
     <div class="small gold">BANKED GOLD: ${save.gold}</div>
+    <div class="small version">Alpha v${version}</div>
   </div>`);
   on('#play', onPlay);
   on('#shop', onShop);
@@ -94,7 +96,7 @@ export function selectScreen(onPick: (id: string) => void, onBack: () => void) {
         ${portrait(c.id)}
         <div class="name">${c.name}</div>
         <div class="kind">${c.title}</div>
-        <div class="desc">${c.passive}</div>
+        ${c.passive ? `<div class="desc">${c.passive}</div>` : ''}
         <div class="desc">${c.desc}</div>
         <div class="flavor">${c.quote}</div>
       </div>`;

@@ -62,18 +62,28 @@ export class Lighting {
     scene.add(this.hemi, this.sun, this.sun.target);
     scene.fog = this.fog;
     const s = this.sun.shadow;
-    s.mapSize.set(1024, 1024);
+    s.mapSize.set(2048, 2048);
+    s.radius = 2; // PCF filter width in texels
     s.camera.left = s.camera.bottom = -24;
     s.camera.right = s.camera.top = 24;
     s.camera.near = 1;
     s.camera.far = 120;
-    s.bias = -0.0015;
+    s.bias = -0.0004; // small, so shadows stay attached to what casts them
+    s.normalBias = 0.03;
     this.sun.castShadow = true;
+    s.camera.layers.enableAll(); // characters cast shadows too
     for (let i = 0; i < N_LANTERN + N_DYNAMIC; i++) {
       const l = new THREE.PointLight(0xffa050, 0, 14, 2);
       this.pool.push(l);
       scene.add(l);
     }
+    // lights must exist in both render passes so both use the same light count
+    for (const l of [this.hemi, this.sun, ...this.pool]) l.layers.enableAll();
+  }
+
+  setLanterns(l: THREE.Vector3[]) {
+    this.lanterns = l;
+    this.sortT = 0;
   }
 
   flash(x: number, y: number, z: number, color: THREE.Color, intensity: number, life: number) {

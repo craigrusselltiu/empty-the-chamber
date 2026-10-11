@@ -5,6 +5,8 @@ import { MAX } from './enemies';
 import { P } from './projectiles';
 import { sfx } from '../audio';
 
+const SHOTS = 6; // Deadeye: one per chamber
+
 export const HANDS = ['HIGH CARD', 'PAIR', 'TWO PAIR', 'THREE OF A KIND', 'STRAIGHT', 'FLUSH', 'FULL HOUSE', 'FOUR OF A KIND', 'STRAIGHT FLUSH', 'ROYAL FLUSH'];
 
 // Card = 0..51: rank = c % 13 (0 = 2 ... 12 = ace), suit = c / 13.
@@ -75,7 +77,8 @@ export class Ult {
       }
       if (!cands.length) return;
       cands.sort((a, b) => (ENEMIES[e.type[b]].boss ? 1e9 : 0) + e.hp[b] - ((ENEMIES[e.type[a]].boss ? 1e9 : 0) + e.hp[a]));
-      this.targets = cands.slice(0, 3);
+      // six shots: the six toughest, cycling through them when there are fewer
+      this.targets = Array.from({ length: SHOTS }, (_, k) => cands[k % Math.min(SHOTS, cands.length)]);
       this.targetUids = this.targets.map((i) => e.uid[i]);
       run.timeScale = 0.12;
     } else {
@@ -125,11 +128,19 @@ export class Ult {
     const run = this.run;
     const e = run.w.enemies;
     const p = run.player;
-    const times = [0.45, 0.8, 1.15];
-    while (this.shotsFired < this.targets.length && this.t >= times[this.shotsFired]) {
+    while (this.shotsFired < this.targets.length && this.t >= 0.4 + this.shotsFired * 0.2) {
       const k = this.shotsFired++;
-      const i = this.targets[k];
-      if (!e.alive[i] || e.uid[i] !== this.targetUids[k]) continue;
+      let i = this.targets[k];
+      if (!e.alive[i] || e.uid[i] !== this.targetUids[k]) {
+        // already dead: the toughest one still standing nearby takes the shot
+        i = -1;
+        for (let j = 0; j < MAX; j++) {
+          if (!e.alive[j] || ENEMIES[e.type[j]].behaviour === 'posse') continue;
+          if ((e.x[j] - p.x) ** 2 + (e.z[j] - p.z) ** 2 > 15 * 15) continue;
+          if (i < 0 || e.hp[j] > e.hp[i]) i = j;
+        }
+        if (i < 0) continue;
+      }
       const dx = e.x[i] - p.x;
       const dz = e.z[i] - p.z;
       const d = Math.hypot(dx, dz) || 1;
@@ -144,25 +155,17 @@ export class Ult {
         for (let h = 0; h < n; h++) if (!ids.includes(e.hits[h])) ids.push(e.hits[h]);
       }
       if (!ids.includes(i)) ids.push(i);
-      const dmg = 140 * this.scale();
+      const dmg = 7.4 * this.scale();
       for (const j of ids) {
         if (!e.alive[j]) continue;
-        const stacks = e.bounty[j];
-        const jx = e.x[j];
-        const jz = e.z[j];
-        const killed = run.hitEnemy(j, j === i ? dmg * 2 : dmg, 2 /* crit */, -1, ux * 10, uz * 10);
-        if (killed && stacks > 0) {
-          run.w.fx.num(jx, 3, jz, 'BOUNTY DETONATED', '#ffd04a', 1, 1);
-          run.explode(jx, jz, 2.2 + Math.min(2.5, stacks * 0.08), stacks * 6 * this.scale(), 0, -1, 0xffd04a);
-          run.w.pick.add(P.COIN, jx, jz, stacks);
-        }
+        run.hitEnemy(j, j === i ? dmg * 2 : dmg, 2 /* crit */, -1, ux * 10, uz * 10);
       }
       run.w.fx.beam(p.x, 1.2, p.z, p.x + ux * 24, 1.2, p.z + uz * 24, 0.35, 0.4, 0xffe0a0);
       run.w.light.flash(p.x, 1.4, p.z, GOLD, 60, 0.3);
       run.w.pl.shake = 0.8;
       sfx.finalShot();
     }
-    if (this.t >= 1.5) {
+    if (this.t >= 0.4 + SHOTS * 0.2 + 0.15) {
       run.w.pl.flash = 1;
       run.w.pl.flashColor.copy(WHITE);
       this.end();
@@ -195,7 +198,7 @@ export class Ult {
     const s = this.scale();
     const r = this.handRank;
     const radius = [2.5, 3, 3, 3.5, 3, 4.5, 4.5, 5.5, 6, 6][r];
-    const dmg = [40, 60, 60, 80, 80, 110, 120, 200, 260, 400][r] * s;
+    const dmg = [2.1, 3.2, 3.2, 4.2, 4.2, 5.8, 6.3, 10.5, 13.7, 21][r] * s;
     const col = [0xa0a0ff, 0xc080ff, 0xc080ff, 0xff80c0, 0x80ffd0, 0xffd04a, 0xff9060, 0xff4040, 0xffffff, 0xffffff][r];
     for (const c of this.cards) run.explode(c.x, c.z, radius / run.stats.area, dmg, 0, -1, col);
     if (r === 2) for (const c of this.cards) run.delayed.push({ t: 0.3, x: c.x, z: c.z, r: radius / run.stats.area, dmg });

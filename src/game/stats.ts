@@ -54,7 +54,7 @@ export function computeStats(ch: CharDef, arts: Map<string, number>, bonusHp: nu
     gold: 1 + rank('greed') * 0.1 + lv('gold_tooth') * 0.2 + (tr('Prospector') >= 2 ? 0.25 : 0),
     luck: lv('loaded_dice') * 0.1,
     ultPerKill: lv('gravedigger'),
-    poisonDps: lv('fang_necklace') * 2,
+    poisonDps: lv('fang_necklace') * 0.1,
     traits,
   };
   return s;

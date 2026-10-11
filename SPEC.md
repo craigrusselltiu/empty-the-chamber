@@ -27,7 +27,7 @@ A horde-survival spin-off of One More In The Chamber (OMITC). Same Frontier, sam
 
 ## 3. Title mechanic: empty the chamber
 
-Every chambered weapon has a chamber size and a reload time. The HUD shows the current weapon's chamber as a revolver cylinder: a filled round for each bullet left, and a spinning cylinder while it reloads.
+Every chambered weapon has a chamber size and a reload time. The HUD shows the current weapon's chamber as a revolver cylinder: a filled round for each bullet left, and a spinning cylinder while it reloads. The rest of the HUD: the XP bar along the top edge, a small run timer just below it with the dusk-to-midnight progress under it, gold at the top right, HP under the player's feet, the boss bar, and the ultimate meter. Damage numbers are 1x, and 1.5x for Final Shots of 2 or more; they show whole numbers (at least 1) even though damage is fractional, and crits end in "!" (e.g. "12!"). Damage the player takes shows no number. The main menu shows the version ("Alpha v" plus the package version) in its bottom-right corner. The HUD is drawn in 270 px units on a canvas at twice that resolution, so text scales are whole or half numbers and always land on whole pixels.
 
 - **Final shot:** the last round in a chamber is a Final Shot. Base effect: 2x damage, +1 pierce, a big muzzle flash, a light pulse, screen shake and a louder report.
 - **Reload gap:** while a weapon reloads it cannot fire. That is the danger window.
@@ -45,19 +45,24 @@ Every chambered weapon has a chamber size and a reload time. The HUD shows the c
 
 All characters have 100 HP unless noted. Character stats live in `src/data/characters.ts`.
 
+**Damage scale:** a starting weapon hit deals 1 damage (Rust's Six-Shooter and Reno's Poker Chips), and every other damage value and enemy HP is on that scale (a Coyote has 0.47 HP, a Bandit 1.05, the Golem 47, Dusty Dan 316). Damage is fractional; only the numbers on screen are rounded. The player's HP and the damage enemies deal stay on their own scale (100 HP).
+
 ### Rust (red panda gunslinger). Unlocked from the start.
 
-- **Weapon: Six-Shooter.** Chamber 6, reload 1.1s. A fast single shot at the nearest enemy. Each hit adds 1 **Bounty** stack.
-- **Passive: Bounty.** If an enemy's HP drops to its Bounty stacks x 4 or lower, it is executed on the spot (5% chance to drop a gold coin). Flavour: "The S is silent."
+- **Weapon: Six-Shooter.** Chamber 6, reload 1.1s. A slow, heavy single shot (0.44s between shots) at the nearest enemy.
+- **Passive:** none.
 - **Starting artifact:** Bamboo Canteen (Saloon Keeper): regenerate HP over time.
-- **Ultimate: Deadeye** (charge 60). Time slows to 15% for about 1.2s. Crosshairs lock onto the 3 toughest enemies on screen (by current HP, bosses first), and 3 piercing shots fire in sequence. A target killed by a Deadeye shot **detonates its Bounty**: an explosion that deals stacks x 6 damage in a radius. The ult ends with a full-screen white flash.
+- **Ultimate: Deadeye** (charge 60). Time slows to 12% for about 1.75s. Crosshairs lock onto the 6 toughest enemies within 15 units (by current HP, bosses first; with fewer than 6 it cycles through them), and 6 piercing shots fire 0.2s apart, one per chamber. A shot whose target already died goes to the toughest enemy still standing nearby. The ult ends with a full-screen white flash.
 - Sprite anims: `idle`, `run`, `stop` (settle when movement ends), `shoot` (plays as a short interrupt on Final Shots and on each Deadeye shot), `hit`.
+- **3D view (V):** the player is drawn by default as the rigged PS1 model the sheets were rendered from (`public/models/<id>.glb`, exported from the pseudo-pixel `.blend`); V swaps to the sprite and back. It plays the same actions, follows the sprite's animation clock, turns smoothly to face movement and aim, and is rendered in the pixel layer like the sprites.
 
 ### "Slick" Reno (raccoon card sharp). Unlocked by holding 500 gold at once during a run.
 
-- **Weapon: Poker Chips.** Chamber 5 (a stack), reload 1.0s. Each chip flips a coin: on a HIT it deals 2.2x damage and can ricochet once; on a WHIFF it deals no damage and sometimes drops a gold coin where it lands.
+Drawn at 1.25x size (sprite and model).
+
+- **Weapon: Poker Chips.** Chamber 5 (a stack), reload 1.0s. Flicks a heavy chip at the nearest enemy every 0.57s; every chip hits (1-1.8 damage). From level 4 each chip ricochets once.
 - **Passive: House Edge.** Reno's level-ups show a 4th face-down "Wild Card": a random offer applied twice.
-- **Starting artifact:** Rigged Deck (Prospector): chip hits have a 50% chance to ricochet to another enemy, and whiffs always drop gold.
+- **Starting artifact:** Rigged Deck (Prospector): chips have a 25% chance per level to ricochet to another enemy.
 - **Ultimate: False Shuffle** (charge 60). Reno deals 5 cards from a fresh deck into a ring around him (rigged: he sees 7 cards and keeps the best 5). The hand rank sets the payoff, and it detonates from each card:
   - High Card: a small burst. Pair: a bigger burst. Two Pair: two bursts.
   - Three of a Kind: three bursts plus a slow. Straight: a line volley through the ring.
@@ -77,8 +82,8 @@ All characters have 100 HP unless noted. Character stats live in `src/data/chara
 
 | Weapon | Behaviour | Chamber / reload | Evolves with | Evolution |
 |---|---|---|---|---|
-| Six-Shooter | Single shot at nearest, adds Bounty | 6 / 1.1s | Kill Confirmed | **Peacemaker**: every shot is a Final Shot |
-| Poker Chips | 50/50 hit or whiff, ricochet | 5 / 1.0s | Loaded Dice | **House Always Wins**: 80% hit chance, whiffs explode |
+| Six-Shooter | Slow heavy shot at nearest (0.44s) | 6 / 1.1s | Kill Confirmed | **Peacemaker**: every shot is a Final Shot |
+| Poker Chips | Heavy chips at nearest, ricochet | 5 / 1.0s | Loaded Dice | **House Always Wins**: every chip bursts on impact |
 | Scattergun | 5-pellet cone | 2 / 1.6s | Black Powder Cache | **Dragon's Breath**: pellets leave fire on the ground |
 | Buffalo Rifle | Long piercing shot. With a chamber of 1, every shot is a Final Shot | 1 / 1.8s | Scope Lens | **Heliograph Lance**: infinite pierce, a beam across the screen |
 | Dynamite | Lobbed at a random nearby enemy, area blast | - / 2.4s | Tinker's Wrench | **Powder Keg**: cluster blasts |
@@ -93,7 +98,7 @@ Artifacts are passives with OMITC trait tags. **Trait level = the number of dist
 
 Stat artifacts (3 levels each):
 - Bamboo Canteen (Saloon Keeper): +0.25 HP/s regen per level. Rust's starter.
-- Rigged Deck (Prospector): chip ricochet chance, and whiffs drop gold more often (12% instead of 4%). Reno's starter.
+- Rigged Deck (Prospector): chip ricochet chance. Reno's starter.
 - Rusty Deputy Badge (Sheriff): +20 max HP per level.
 - Reinforced Duster (Sheriff): +1 armour per level.
 - Outlaw's Spurs (Outlaw, Mustang): +10% move speed per level.
@@ -103,7 +108,7 @@ Stat artifacts (3 levels each):
 - Scope Lens (Sniper): +15% projectile speed and range, +10% damage per level.
 - Black Powder Cache (Sapper): +15% area per level.
 - Loaded Dice (Desperado): +10% luck per level (better offers, chip hit chance +5%).
-- Rattlesnake Fang Necklace (Rattlesnake): hits poison for 2 dmg/s per level for 3s.
+- Rattlesnake Fang Necklace (Rattlesnake): hits poison for 0.1 dmg/s per level for 3s.
 - Tinker's Wrench (Sapper): -8% non-chamber weapon cooldown per level.
 - Gravedigger's Shovel (Undertaker): +1 ultimate charge per kill per level.
 - Plus the chamber artifacts in section 3.
@@ -127,21 +132,25 @@ Every breakpoint is reachable with 6 artifact slots. Tags: Lucky Bullet (Gunslin
 
 Enemies are procedural low-poly meshes (instanced per type). Each type is described by a builder function and a colour, so a sprite sheet in the player sheet format can replace it later.
 
-**Stage 1: The Dusty Trail** (a trail-stop boomtown: saloon, sheriff's office, general store, bank, stables, a stone wall and WANTED posters with Rust's face).
+**Stage 1: The Dusty Trail** is an endless desert of trail towns, generated from the run's seed and streamed in around the player. The world is a grid of 128-unit cells. Each cell has a junction near its centre (jittered up to 14 units), and curved roads (cubic curves bowing up to 18 units) join neighbouring junctions by seeded chance; main street (the row through the start) always runs, and the start junction always has a cross street. A junction on two or more roads usually grows a town: the 13 buildings (saloon, sheriff's office with WANTED posters of Rust, bank, hotel, livery, general store, assay office, undertaker, jail, telegraph, chapel, blacksmith, barber) are shuffled and set along the roads leading out of it, facing the road at whatever angle it runs with a slight random skew, 3-7 units apart and 10 units from the road's centre. The side whose facades face the camera fills first. Lamp posts line the camera-side kerb; hitching rails, troughs, barrels and crates go in front of buildings; a well, wagons, a water tower, a corral and loose clutter fill the gaps. A junction on one road gets an outpost (trading post, way station, cantina or stables), and cells without roads are open desert with cacti, rocks, dead trees, stone walls and mesas (tiered, uneven, turned rock formations with a flat cap). Everything a cell places stays inside it, so cells never conflict. The well and troughs are open, with water inside. Roads are packed dirt with one pair of wagon ruts that wander and fade in and out. The ground is tinted by a smooth vegetation field (shared by the ground shader and plant placement): olive, darker earth where it is high, pale sand where it is low. Plants cluster where it is high: sagebrush and creosote clumps, grass tufts (dry tan to green), wildflowers, prickly pear, yucca (some in flower), agave and barrel cacti; bare sand gets sparse grass, pebbles, agave, barrel cacti and the odd cow skull. Plants are thinner in settlements, never on roads, and do not block movement.
+
+**Textures:** everything the world builds is textured with small nearest-filtered pixel-art textures painted at startup (`src/render/textures.ts`), at a constant 20 texels per unit. Walls come in lap siding (natural, silvered grey, whitewash chipped to the wood), red board-and-batten and dressed stone, and each building's shade varies a little. Decks, false fronts of stone buildings and benches are vertical boards; posts, rails, legs and dead trees are single timbers with the grain along their length; frames and trim are dark wood; flat roofs are rusty corrugated tin, gables cedar shingles. Lamp posts and lanterns are rusty iron; hay bales, water, mesas and rocks have their own textures; barrels and crates have a texture across each face. Plants, cacti, bones and the wagon canvas use neutral textures (a leafy speckle, ribs with spines) tinted by their vertex colour.
+
+**Seeing behind buildings and mesas:** when a building or a mesa stands between the player and the camera (a ray from the player's feet and head toward the camera hits its footprint below its top), everything of it above knee height dissolves with an ordered dither over 0.2s, leaving its base, floor and porch deck on the ground as a floor plan; it fades back when the player steps out. Mesas leave a low rocky outline. Other occluders (water towers, lamp posts, cacti) still use the small x-ray cutout around the player. Runs start on the first junction.
 
 | Enemy | Role | Behaviour |
 |---|---|---|
 | Coyote | swarm | Fast, low HP, comes in packs |
-| Bandit | basic | Walks at you |
-| Bandit Gunman | ranged | Keeps distance and fires slow bullets |
+| Bandit | basic | Walks at you (1.25x size) |
+| Bandit Gunman | ranged | Keeps distance and fires slow bullets (1.25x size) |
 | Rattlesnake | charge | Stops, rattles, then lunges |
 | Vulture | flyer | Ignores buildings and swoops |
 | Tumbleweed | splitter | Rolls in, splits in two on death |
 | Pack Mule | tank | Slow, heavy, drops a gold sack |
 
-Elites (glowing, larger, drop a chest): **Tumbleweed Golem** (tank, bursts into 6 tumbleweeds) and **Dust Devil** (erratic whirlwind that pulls pickups and the player).
+Elites (glowing, larger, drop a chest): **Tumbleweed Golem** (tank at 1.25x size, bursts into 6 tumbleweeds) and **Dust Devil** (erratic whirlwind that pulls pickups and the player).
 
-**Boss at 10:00: "Dusty" Dan McGraw.** A large bandit king that walks at you. It fires 8-way bullet rings, summons 2 vultures, and casts **Gravity Shift**: for 2.5s, a strong wind pushes you and every pickup in one direction (telegraphed with dust streaks). It drops a big chest and lots of gold.
+**Boss at 10:00: "Dusty" Dan McGraw.** A large bandit king (1.25x size) that walks at you. It fires 8-way bullet rings, summons 2 vultures, and casts **Gravity Shift**: for 2.5s, a strong wind pushes you and every pickup in one direction (telegraphed with dust streaks). It drops a big chest and lots of gold.
 
 **Wave schedule:** spawn rate (enemies, counting pack members) rises from about 1.5/s to 31/s over 15:00. Enemy HP scales by 1 + t/240 + (t/420)^2 and contact damage by 1 + t/900 (t in seconds). Stampedes arrive from one side in a 120 degree arc. The mix shifts from coyotes and bandits to gunmen, snakes and tumbleweeds, then mules. Stampedes come at 2:00 and 5:00 (coyotes), 8:00 (tumbleweeds) and 12:00 (coyotes). Elites at 3:00, 6:00, 9:00, 12:00 and 13:30. The boss at 10:00. The Posse at 15:00. Hard cap of 600 live enemies.
 
@@ -158,15 +167,17 @@ Elites (glowing, larger, drop a chest): **Tumbleweed Golem** (tank, bursts into 
 
 - TypeScript + Vite + Three.js. No other runtime dependencies.
 - `src/main.ts`: app state (title, character select, shop, run, results).
-- `src/render/`: `pipeline.ts` (render target 270 px tall with the width following the window aspect, so there are no black bars; post pass with bloom, ACES tonemap, purple shadow tint, a 4x4 Bayer dither, quantisation to 32 levels per channel and a vignette; nearest-neighbour upscale), `ps1.ts` (2-pixel vertex snapping on world and enemy materials, plus a dithered x-ray cutout so buildings never hide the player; flat ground layers are not snapped, to avoid z-fighting; the camera is orthographic, so affine texture warping would look no different and is skipped), `sprite.ts` (lit, outlined sprite-sheet billboards), `font.ts` (5x7 bitmap font for the HUD and damage numbers).
-- `src/world/`: `town.ts` (procedural map, colliders, lantern positions), `flowfield.ts` (a BFS flow field over a 1-unit grid, rebuilt 4x per second, so enemies route around buildings).
+- `src/render/`: `pipeline.ts` (two layers. The map renders at the full window resolution with PS1 vertex wobble and nearest-filtered textures, but is not pixelated. The pixel layer (characters, enemies, projectiles, pickups and effects, on layer 1) renders at 270 px tall with the width following the window aspect, after a depth-only pass of the map so the map still hides what is behind it; it is upscaled nearest-neighbour and composited over the map by alpha, with additive effects added. Then a post pass with bloom, ACES tonemap, purple shadow tint, a 4x4 Bayer dither, quantisation to 32 levels per channel and a vignette. No black bars at any aspect), `ps1.ts` (vertex snapping: half a pixel-layer pixel on the map, one pixel on the pixel layer; plus a dithered x-ray cutout so buildings never hide the player; flat ground layers are not snapped, to avoid z-fighting; the camera is orthographic, so affine texture warping would look no different and is skipped), `sprite.ts` (lit, outlined sprite-sheet billboards), `model.ts` (the player's 3D model), `font.ts` (5x7 bitmap font for the HUD and damage numbers).
+- `src/world/`: `town.ts` (the streaming world: the 3x3 cells around the player are kept built, a new cell is built a few milliseconds at a time over several frames, and cells more than two away are dropped; colliders are oriented boxes and circles in a 16-unit bucket grid; a dirt plane follows the player), `flowfield.ts` (a BFS flow field over a 96 x 96, 1-unit grid centred on the player, rebuilt 4x per second, so enemies route around buildings). The enemy spatial hash wraps, so it works anywhere.
 - `src/game/`: `run.ts` (simulation), `enemies.ts` (struct-of-arrays pool, instanced meshes, spatial hash), `weapons.ts`, `projectiles.ts`, `pickups.ts`, `hud.ts`, `levelup.ts`.
-- Camera: orthographic, 45 deg yaw, 30 deg pitch. 20 px per world unit. The sprites' characters are about 36 px tall inside the 64 px frame, so at a 270 px render height (1 texel = 1 pixel) a character is about 1/7.5 of the screen. Camera and sprite positions are snapped to whole render pixels.
+- Camera: orthographic, 45 deg yaw, 30 deg pitch. 20 px per world unit. The sprites' characters are about 36 px tall inside the 64 px frame, so at a 270 px render height (1 texel = 1 pixel) a character is about 1/7.5 of the screen. The camera is snapped to whole screen pixels; sprites and the 3D model are snapped to whole pixel-layer pixels relative to it.
 - Lighting: hemisphere + directional sun/moon (a 1024 shadow map that follows the player, cast by buildings and props), and a fixed pool of 12 point lights reassigned each frame to the nearest lanterns, muzzle flashes and explosions. The light count never changes, so shaders never recompile.
 - Determinism: a seeded `mulberry32` RNG per run (the seed is shown on the results screen; set one with `?seed=123`). Gameplay randomness never uses `Math.random`.
 - Debug: `?debug` exposes `run`, `input` and `world` on `window`; `?debug&speed=6` runs the simulation 6x faster for playtests.
 - Performance: 600 enemies, 1,000 projectiles and 1,500 pickups in fixed pools, a fixed 60 Hz simulation step, and no per-frame allocations in hot loops.
 - Deploy: `vite build` with `base: '/empty-the-chamber/'`, via the GitHub Actions Pages workflow.
+
+**Run intro:** a run opens on a close-up of the player (3x zoom, a nearly level camera about 3 degrees up so the sky shows above them, orbited to a side with nothing in front of the character and nothing tall behind them within the haze) in letterbox, with the character turned to face the camera. The building-hiding and the x-ray cutout follow the camera in use, so nothing blocks the shot as it pulls back. After a short hold the camera eases out to the gameplay angle over about 2.2s while the black bars slide off the top and bottom; the simulation and the HUD start when it lands. Any key skips it.
 
 ## 10. Controls
 
@@ -176,6 +187,7 @@ Elites (glowing, larger, drop a chest): **Tumbleweed Golem** (tank, bursts into 
 | Ultimate | Space | A / RT | ULT button |
 | Pause | Esc / P | Start | - |
 | Level-up pick | 1-4 / click | d-pad + A | Tap |
+| Toggle sprite / 3D player | V | - | - |
 
 ## 11. Milestones
 

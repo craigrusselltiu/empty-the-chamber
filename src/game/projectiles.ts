@@ -7,20 +7,17 @@ export const K = {
   BULLET: 0,
   FINAL: 1,
   CHIP: 2,
-  CHIP_MISS: 3,
-  PELLET: 4,
-  RIFLE: 5,
-  KNIFE: 6,
-  DYNAMITE: 7,
-  EBULLET: 8,
-  SPARK: 9,
+  PELLET: 3,
+  RIFLE: 4,
+  KNIFE: 5,
+  DYNAMITE: 6,
+  EBULLET: 7,
+  SPARK: 8,
 } as const;
 
 export const F = {
   FINAL: 1,
   CRIT: 2,
-  BOUNTY: 4,
-  WHIFF: 8,
   POISON: 16,
   FIRE: 32,
   EVO: 64,
@@ -31,7 +28,6 @@ const LOOK: number[][] = [
   [0.1, 0.1, 0.55, 3.0, 2.4, 1.2],
   [0.2, 0.2, 1.1, 4.0, 1.8, 0.5],
   [0.34, 0.08, 0.34, 2.6, 0.5, 0.4],
-  [0.34, 0.08, 0.34, 0.9, 0.9, 1.0],
   [0.08, 0.08, 0.3, 2.6, 2.0, 1.0],
   [0.12, 0.12, 1.6, 3.2, 2.8, 1.8],
   [0.08, 0.06, 0.6, 2.2, 2.2, 2.4],
@@ -115,7 +111,7 @@ export class Projectiles {
       if (!this.alive[i]) continue;
       const L = LOOK[this.kind[i]];
       const yaw = Math.atan2(this.vx[i], this.vz[i]);
-      if (this.kind[i] === K.CHIP || this.kind[i] === K.CHIP_MISS || this.kind[i] === K.DYNAMITE) {
+      if (this.kind[i] === K.CHIP || this.kind[i] === K.DYNAMITE) {
         this.spin[i] += 0.4;
         this.e.set(this.spin[i], yaw, 0, 'YXZ');
       } else this.e.set(0, yaw, 0);

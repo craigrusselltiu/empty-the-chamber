@@ -1,6 +1,7 @@
 import * as THREE from 'three';
-import { Pipeline, H, view } from './render/pipeline';
-import { cutout } from './render/ps1';
+import { Pipeline, H, view, YAW, CINE_PITCH, CINE_LIFT, PPU } from './render/pipeline';
+import { look } from './game/player';
+import { cutBase } from './render/ps1';
 import { World } from './game/world';
 import { Run } from './game/run';
 import { drawHud } from './game/hud';
@@ -23,8 +24,14 @@ const simSpeed = debug ? Number(params.get('speed') ?? 1) : 1; // ?debug&speed=8
 
 const pl = new Pipeline(glCanvas);
 function fit() {
-  pl.resize(innerWidth / innerHeight);
-  if (hud.width !== view.w) hud.width = view.w;
+  const dpr = Math.min(devicePixelRatio, 2, 2160 / innerHeight); // cap the full-res pass at 2160 px tall
+  pl.resize(Math.round(innerWidth * dpr), Math.round(innerHeight * dpr));
+  // The HUD draws in 270 px units on a 2x canvas, so 1.5x text lands on whole pixels.
+  if (hud.width !== view.w * 2) {
+    hud.width = view.w * 2;
+    hud.height = H * 2;
+  }
+  g.setTransform(2, 0, 0, 2, 0, 0);
   g.imageSmoothingEnabled = false;
   stage.style.fontSize = `${Math.max(10, Math.min(18, innerHeight / 36))}px`;
 }
@@ -45,7 +52,6 @@ const STEP = 1 / 60;
 let acc = 0;
 let last = performance.now();
 let titleT = 0;
-const sp = { x: 0, y: 0 };
 const pv = new THREE.Vector3();
 
 function toTitle() {
@@ -62,12 +68,27 @@ function toTitle() {
 
 function startRun(id: string) {
   const seed = params.has('seed') ? parseInt(params.get('seed')!) : Math.floor(Math.random() * 1e9);
+  world.newTown(seed);
   run = new Run(world, charById(id), seed);
   state = 'run';
   paused = false;
   deathT = 0;
   acc = 0;
   renoTold = false;
+  introT = 0;
+  // orbit the close-up to an angle where nothing stands between the camera and the character, and
+  // nothing tall stands behind them (within the haze), so the top of the frame is sky
+  const st = world.town.start;
+  const rise = Math.tan(CINE_PITCH);
+  const top = CINE_LIFT + H / 2 / PPU / 3; // height of the frame's top edge at the character (3x zoom)
+  const clear = (off: number, back: boolean) => {
+    const dx = Math.sin(YAW + off);
+    const dz = Math.cos(YAW + off);
+    if (world.town.occluder(st.x, st.z, dx, dz, rise)) return false;
+    return !back || !world.town.occluder(st.x, st.z, -dx, -dz, -rise, top - 0.5, 60);
+  };
+  const offs = [0.55, -0.55, 1.1, -1.1, 0, 1.6, -1.6, 2.1, -2.1, 2.6, -2.6, 3.1];
+  pl.cineYaw = offs.find((o) => clear(o, true)) ?? offs.find((o) => clear(o, false)) ?? 0.55;
   menus.clearUi();
   if (debug) Object.assign(window as any, { run, input });
 }
@@ -134,26 +155,48 @@ function endRun() {
 
 let renoTold = false;
 
+// Run intro: a close-up of the player in letterbox, easing out to the gameplay camera.
+const INTRO = 2.8;
+let introT = -1;
+
 function frame(now: number) {
   const dt = Math.min(0.1, (now - last) / 1000);
   if (debug) (window as any).world = world;
   last = now;
   pollInput();
 
+  if (input.pressed.includes('KeyV')) look.model = !look.model;
   // menu navigation (keys only reach menus while one is open)
   if (state !== 'run' || paused) for (const code of input.pressed) menus.menuKey(code);
 
   if (state === 'title' || !run) {
     // slow pan along the main street behind the menu
     titleT += dt;
-    const x = Math.sin(titleT * 0.05) * 20 + 10;
-    pl.setTarget(x, 0, titleT);
-    world.updateLighting(0.45, x, 0, dt, titleT);
-    cutout.value.z = -1;
+    const st = world.town.start;
+    const x = st.x + Math.sin(titleT * 0.05) * 14;
+    const z = st.z + Math.sin(titleT * 0.037) * 8;
+    pl.setTarget(x, z, titleT);
+    world.updateLighting(0.45, x, z, dt, titleT);
+    cutBase.z = -1;
     pl.render(world.scene, 0.9);
   } else {
     const r = run;
-    if (state === 'run' && !paused) {
+    let intro = -1; // 0..1 blend while the intro plays
+    if (introT >= 0) {
+      introT += dt;
+      if (introT > 0.3 && input.pressed.length) introT = INTRO; // any key skips
+      const u = Math.min(1, Math.max(0, (introT - 0.6) / (INTRO - 0.6)));
+      intro = u < 0.5 ? 4 * u * u * u : 1 - (-2 * u + 2) ** 3 / 2;
+      // the character faces the camera: the sprite's front row, the 3D model turned to the camera's orbit
+      const yaw = YAW + pl.cineYaw * (1 - intro);
+      r.player.faceNow(Math.sin(yaw), Math.cos(yaw), pl);
+      r.player.sprite.dir = 6;
+      r.player.sprite.update(dt);
+      if (introT >= INTRO) introT = -1;
+    }
+    pl.cine = intro >= 0 ? 1 - intro : 0;
+    if (intro >= 0) input.ult = input.pause = false;
+    else if (state === 'run' && !paused) {
       if (input.pause) {
         paused = true;
         menus.pauseScreen(r, resume, () => {
@@ -184,11 +227,20 @@ function frame(now: number) {
     r.sync(dt);
     // x-ray cutout around the player
     const p = r.player;
-    pl.toScreen(p.x, 0.9, p.z, sp);
+    // (projected with the camera in use, so it also works during the intro)
     pv.set(p.x, 0.9, p.z).applyMatrix4(pl.camera.matrixWorldInverse);
-    cutout.value.set(sp.x, H - sp.y, -pv.z, 30);
+    const depth = -pv.z;
+    pv.set(p.x, 0.9, p.z).project(pl.camera);
+    cutBase.set(((pv.x + 1) / 2) * view.w, ((pv.y + 1) / 2) * H, depth, 30 * pl.camera.zoom);
     pl.render(world.scene, 0.9);
-    drawHud(g, r, touch);
+    if (intro >= 0) {
+      // letterbox bars slide off as the camera pulls back
+      g.clearRect(0, 0, view.w, H);
+      const bh = Math.round(H * 0.13 * (1 - intro));
+      g.fillStyle = '#000';
+      g.fillRect(0, 0, view.w, bh);
+      g.fillRect(0, H - bh, view.w, bh);
+    } else drawHud(g, r, touch);
   }
 
   input.pressed.length = 0;

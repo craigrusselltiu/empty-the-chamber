@@ -82,10 +82,6 @@ export const sfx = {
     const t = ctx!.currentTime;
     tone(t, 0.05, 1800, 2400, 0.12, 'square');
   },
-  whiff() {
-    if (!ok('whiff', 0.08)) return;
-    noise(ctx!.currentTime, 0.15, 900, 4, 0.15, 'bandpass');
-  },
   pellet() {
     if (!ok('pellet', 0.06)) return;
     const t = ctx!.currentTime;

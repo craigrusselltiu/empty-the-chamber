@@ -60,6 +60,7 @@ const INDEX: Record<string, number> = {};
 ORDER.forEach((k, i) => (INDEX[k] = i));
 const CW = 7; // cell incl. outline
 const CH = 9;
+const STRIDE = CW + 1; // transparent gap between cells so scaled glyphs never pick up a neighbour's outline
 
 const atlases = new Map<string, HTMLCanvasElement>();
 
@@ -67,7 +68,7 @@ function atlas(color: string) {
   let a = atlases.get(color);
   if (a) return a;
   a = document.createElement('canvas');
-  a.width = ORDER.length * CW;
+  a.width = ORDER.length * STRIDE;
   a.height = CH;
   const g = a.getContext('2d')!;
   for (let pass = 0; pass < 2; pass++) {
@@ -77,8 +78,8 @@ function atlas(color: string) {
       for (let y = 0; y < 7; y++)
         for (let x = 0; x < 5; x++) {
           if (rows[y][x] !== '1') continue;
-          if (pass === 0) g.fillRect(i * CW + x, y, 3, 3);
-          else g.fillRect(i * CW + x + 1, y + 1, 1, 1);
+          if (pass === 0) g.fillRect(i * STRIDE + x, y, 3, 3);
+          else g.fillRect(i * STRIDE + x + 1, y + 1, 1, 1);
         }
     });
   }
@@ -96,9 +97,10 @@ export function drawText(g: CanvasRenderingContext2D, s: string, x: number, y: n
   else if (align === 'right') x -= textWidth(s, scale);
   x = Math.round(x);
   y = Math.round(y);
+  // Scales are whole or half numbers; the HUD canvas is 2x, so both land on whole canvas pixels.
   for (let i = 0; i < s.length; i++) {
     const ch = s[i].toUpperCase();
     const idx = INDEX[ch];
-    if (idx !== undefined) g.drawImage(a, idx * CW, 0, CW, CH, x + i * 6 * scale - scale, y - scale, CW * scale, CH * scale);
+    if (idx !== undefined) g.drawImage(a, idx * STRIDE, 0, CW, CH, x + i * 6 * scale - scale, y - scale, CW * scale, CH * scale);
   }
 }

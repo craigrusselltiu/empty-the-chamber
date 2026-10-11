@@ -11,7 +11,8 @@ export interface CharDef {
   ultName: string;
   ultCharge: number;
   outline: [number, number, number];
-  passive: string;
+  size?: number; // drawn size (sprite and model), 1 by default
+  passive?: string;
   desc: string;
   unlock: string; // hint shown while locked; empty = unlocked from the start
   quote: string;
@@ -31,8 +32,7 @@ export const CHARACTERS: CharDef[] = [
     ultName: 'DEADEYE',
     ultCharge: 60,
     outline: [1.0, 0.55, 0.2],
-    passive: 'Bounty: Six-Shooter hits add Bounty. Enemies at or below 4 HP per stack are executed and pay out gold.',
-    desc: 'Ultimate, Deadeye: time crawls, three piercing shots find the toughest targets, and Bounty detonates.',
+    desc: 'Ultimate, Deadeye: time crawls and six piercing shots find the toughest targets.',
     unlock: '',
     quote: '"It was one shot. One stupid, lucky, terrible shot."',
   },
@@ -49,6 +49,7 @@ export const CHARACTERS: CharDef[] = [
     ultName: 'FALSE SHUFFLE',
     ultCharge: 60,
     outline: [0.75, 0.45, 1.0],
+    size: 1.25,
     passive: 'House Edge: every level-up shows a face-down Wild Card, a random pick applied twice.',
     desc: 'Ultimate, False Shuffle: deals a five-card hand around him. The better the hand, the bigger the payoff.',
     unlock: 'Hold 500 gold in a single run.',

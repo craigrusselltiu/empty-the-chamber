@@ -12,7 +12,7 @@ export const MAX_ARTIFACT_LEVEL = 3;
 
 export const ARTIFACTS: ArtifactDef[] = [
   { id: 'bamboo_canteen', name: 'Bamboo Canteen', tags: ['Saloon Keeper'], desc: '+0.25 HP regen per second per level.', flavor: '"Bamboo doesn\'t rust."' },
-  { id: 'rigged_deck', name: 'Rigged Deck', tags: ['Prospector'], desc: 'Chip hits may ricochet (+25% chance per level). Whiffs drop gold more often.', flavor: '"Bad luck is still luck."', starter: true },
+  { id: 'rigged_deck', name: 'Rigged Deck', tags: ['Prospector'], desc: 'Chips may ricochet (+25% chance per level).', flavor: '"Bad luck is still luck."', starter: true },
   { id: 'deputy_badge', name: 'Rusty Deputy Badge', tags: ['Sheriff'], desc: '+20 max HP per level.', flavor: '"Tarnished but still standing."' },
   { id: 'duster', name: 'Reinforced Duster', tags: ['Sheriff'], desc: '+1 armour per level.', flavor: '"Lined with steel plates."' },
   { id: 'outlaws_spurs', name: "Outlaw's Spurs", tags: ['Outlaw', 'Mustang'], desc: '+10% move speed per level.', flavor: '"Kick the door in. Ask questions later."' },
@@ -21,8 +21,8 @@ export const ARTIFACTS: ArtifactDef[] = [
   { id: 'gold_tooth', name: 'Gold Tooth', tags: ['Prospector'], desc: '+20% gold per level.', flavor: '"Smiles and profits."' },
   { id: 'scope_lens', name: 'Scope Lens', tags: ['Sniper'], desc: '+15% projectile speed and range, +10% damage per level.', flavor: '"See it before it sees you."' },
   { id: 'black_powder', name: 'Black Powder Cache', tags: ['Sapper'], desc: '+15% area per level.', flavor: '"Surplus inventory."' },
-  { id: 'loaded_dice', name: 'Loaded Dice', tags: ['Desperado', 'Prospector'], desc: '+10% luck per level: better offers, +5% chip hit chance.', flavor: '"Snake eyes? Never heard of her."' },
-  { id: 'fang_necklace', name: 'Rattlesnake Fang Necklace', tags: ['Outlaw'], desc: 'Hits poison for 2 damage per second per level.', flavor: '"Trophy from the first one that bit you."' },
+  { id: 'loaded_dice', name: 'Loaded Dice', tags: ['Desperado', 'Prospector'], desc: '+10% luck per level: better offers and more gold.', flavor: '"Snake eyes? Never heard of her."' },
+  { id: 'fang_necklace', name: 'Rattlesnake Fang Necklace', tags: ['Outlaw'], desc: 'Hits poison enemies; more poison per level.', flavor: '"Trophy from the first one that bit you."' },
   { id: 'tinkers_wrench', name: "Tinker's Wrench", tags: ['Sapper'], desc: '-8% cooldown on weapons without a chamber per level.', flavor: '"Every match is an explosion waiting to happen."' },
   { id: 'gravedigger', name: "Gravedigger's Shovel", tags: ['Undertaker', 'Dead Man Walking'], desc: '+1 ultimate charge per kill per level.', flavor: '"Business is booming."' },
   // empty the chamber

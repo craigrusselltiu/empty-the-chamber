@@ -116,23 +116,16 @@ export function drawHud(g: CanvasRenderingContext2D, run: Run, touch: boolean) {
     });
   }
 
-  // top: XP bar, level, timer, kills, gold
+  // top: XP bar, timer, gold
   bar(g, 1, 1, W - 2, 4, run.xp / run.xpNext, '#e0b050');
-  drawText(g, `LV ${run.level}`, 4, 8, '#ffe0a0');
-  const left = Math.max(0, time);
-  drawText(g, clock(left), W / 2, 8, run.survived ? '#ff6050' : '#ffffff', 2, 'center');
-  drawText(g, `${run.kills} KILLS`, W - 4, 8, '#ffffff', 1, 'right');
-  drawText(g, `$${Math.floor(run.gold)}`, W - 4, 18, '#ffd04a', 1, 'right');
+  drawText(g, clock(Math.max(0, time)), W / 2, 12, run.survived ? '#ff6050' : '#ffffff', 1, 'center');
+  drawText(g, `$${Math.floor(run.gold)}`, W - 4, 12, '#ffd04a', 1, 'right');
   // dusk-to-midnight progress
   const dk = Math.min(1, time / RUN_LENGTH);
   g.fillStyle = '#000';
-  g.fillRect(W / 2 - 30, 25, 60, 3);
+  g.fillRect(W / 2 - 16, 22, 32, 2);
   g.fillStyle = '#c070ff';
-  g.fillRect(W / 2 - 30, 25, Math.round(60 * dk), 3);
-
-  // HP top-left
-  bar(g, 4, 18, 70, 5, run.hp / run.stats.maxHp, '#e04030');
-  drawText(g, `${Math.ceil(run.hp)}/${Math.round(run.stats.maxHp)}`, 78, 17, '#ffb0a0');
+  g.fillRect(W / 2 - 16, 22, Math.round(32 * dk), 2);
 
   // boss bar
   if (run.bossIdx >= 0 && w.enemies.alive[run.bossIdx]) {

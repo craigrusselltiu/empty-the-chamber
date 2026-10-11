@@ -58,7 +58,7 @@ function startReload(run: Run, w: WeaponState) {
   }
   const det = run.art('detonator');
   if (det) {
-    const i = run.w.proj.add(K.DYNAMITE, p.x, p.z, 0, 0, 0.9, 18 * det, 0, 0.2);
+    const i = run.w.proj.add(K.DYNAMITE, p.x, p.z, 0, 0, 0.9, 0.95 * det, 0, 0.2);
     if (i >= 0) {
       run.w.proj.y[i] = 0.15;
       run.w.proj.area[i] = 2.2;
@@ -79,7 +79,7 @@ function muzzle(run: Run, dx: number, dz: number, final: boolean) {
     const lc = run.art('last_call');
     if (lc) {
       const r = 2.2 + lc * 0.7;
-      run.explode(p.x, p.z, r / run.stats.area, 12 * lc, 0, -1, 0xfff0c0);
+      run.explode(p.x, p.z, r / run.stats.area, 0.63 * lc, 0, -1, 0xfff0c0);
       sfx.bell();
     } else sfx.finalShot();
   }
@@ -126,7 +126,7 @@ function fire(run: Run, w: WeaponState, idx: number, final: boolean): boolean {
       const [dx, dz] = aim(run, t);
       for (let k = 0; k < count; k++) {
         const [vx, vz] = rot(dx, dz, spread(count, k, 0.12));
-        pr.add(final ? K.FINAL : K.BULLET, p.x + vx * 0.5, p.z + vz * 0.5, vx * speed, vz * speed, range / speed + 0.1, dmg, pierce + (final ? 1 : 0), final ? 0.35 : 0.22, F.BOUNTY | finalFlags, idx);
+        pr.add(final ? K.FINAL : K.BULLET, p.x + vx * 0.5, p.z + vz * 0.5, vx * speed, vz * speed, range / speed + 0.1, dmg, pierce + (final ? 1 : 0), final ? 0.35 : 0.22, finalFlags, idx);
       }
       muzzle(run, dx, dz, final);
       if (!final) sfx.shot();
@@ -136,12 +136,10 @@ function fire(run: Run, w: WeaponState, idx: number, final: boolean): boolean {
       const t = run.nearest(p.x, p.z, range);
       if (t < 0) return false;
       const [dx, dz] = aim(run, t);
-      const hitChance = w.evolved ? 0.8 : 0.5 + run.art('loaded_dice') * 0.05;
       for (let k = 0; k < count; k++) {
         const [vx, vz] = rot(dx, dz, spread(count, k, 0.2));
-        const hit = run.rng.chance(final ? Math.max(hitChance, 0.75) : hitChance);
-        const i = pr.add(hit ? K.CHIP : K.CHIP_MISS, p.x + vx * 0.5, p.z + vz * 0.5, vx * speed, vz * speed, range / speed + 0.2, hit ? dmg * 2.2 : 0, 0, 0.3, (hit ? 0 : F.WHIFF) | finalFlags | (w.evolved ? F.EVO : 0), idx);
-        if (i >= 0 && hit) pr.bounce[i] = (w.level >= 4 ? 1 : 0) + (run.rng.chance(run.art('rigged_deck') * 0.25) ? 1 : 0);
+        const i = pr.add(K.CHIP, p.x + vx * 0.5, p.z + vz * 0.5, vx * speed, vz * speed, range / speed + 0.2, dmg, 0, 0.3, finalFlags | (w.evolved ? F.EVO : 0), idx);
+        if (i >= 0) pr.bounce[i] = (w.level >= 4 ? 1 : 0) + (run.rng.chance(run.art('rigged_deck') * 0.25) ? 1 : 0);
       }
       muzzle(run, dx, dz, final);
       if (!final) sfx.chip();

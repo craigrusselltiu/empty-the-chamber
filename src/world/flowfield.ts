@@ -1,40 +1,54 @@
-import { Town, BOUND } from './town';
+import { Town, inBox } from './town';
 
-// BFS flow field on a 1-unit grid toward the player, so the horde routes around buildings.
-const N = BOUND * 2;
+// BFS flow field toward the player on a 1-unit grid that moves with them, so the horde routes
+// around buildings. Cells outside the grid map to one extra open cell with no direction.
+const N = 96;
 const SIZE = N * N;
 const INF = 0xffff;
 const DX = [1, -1, 0, 0, 1, 1, -1, -1];
 const DZ = [0, 0, 1, -1, 1, -1, 1, -1];
 
 export class FlowField {
-  blocked = new Uint8Array(SIZE);
-  dist = new Uint16Array(SIZE);
-  dirX = new Float32Array(SIZE);
-  dirZ = new Float32Array(SIZE);
+  blocked = new Uint8Array(SIZE + 1);
+  dist = new Uint16Array(SIZE + 1);
+  dirX = new Float32Array(SIZE + 1);
+  dirZ = new Float32Array(SIZE + 1);
   private queue = new Int32Array(SIZE);
+  private ox = 0; // world position of cell (0, 0)
+  private oz = 0;
 
-  constructor(town: Town) {
-    for (const b of town.boxes) {
-      for (let z = Math.floor(b.z0 + BOUND - 0.3); z <= Math.floor(b.z1 + BOUND + 0.3); z++)
-        for (let x = Math.floor(b.x0 + BOUND - 0.3); x <= Math.floor(b.x1 + BOUND + 0.3); x++)
-          if (x >= 0 && z >= 0 && x < N && z < N) this.blocked[z * N + x] = 1;
-    }
-    for (const c of town.circles) {
-      if (c.r < 0.6) continue;
-      const cx = Math.floor(c.x + BOUND);
-      const cz = Math.floor(c.z + BOUND);
-      if (cx >= 0 && cz >= 0 && cx < N && cz < N) this.blocked[cz * N + cx] = 1;
-    }
-  }
+  constructor(private town: Town) {}
 
   cell(x: number, z: number) {
-    const cx = Math.min(N - 1, Math.max(0, Math.floor(x + BOUND)));
-    const cz = Math.min(N - 1, Math.max(0, Math.floor(z + BOUND)));
-    return cz * N + cx;
+    const cx = Math.floor(x - this.ox);
+    const cz = Math.floor(z - this.oz);
+    return cx < 0 || cz < 0 || cx >= N || cz >= N ? SIZE : cz * N + cx;
+  }
+
+  private rasterize() {
+    const { blocked, ox, oz } = this;
+    blocked.fill(0);
+    for (const ch of this.town.chunks.values()) {
+      for (const b of ch.boxes) {
+        const x0 = Math.max(0, Math.floor(b.x0 - ox - 0.3));
+        const x1 = Math.min(N - 1, Math.floor(b.x1 - ox + 0.3));
+        const z0 = Math.max(0, Math.floor(b.z0 - oz - 0.3));
+        const z1 = Math.min(N - 1, Math.floor(b.z1 - oz + 0.3));
+        for (let z = z0; z <= z1; z++)
+          for (let x = x0; x <= x1; x++) if (inBox(b, ox + x + 0.5, oz + z + 0.5, 0.8)) blocked[z * N + x] = 1;
+      }
+      for (const c of ch.circles) {
+        if (c.r < 0.6) continue;
+        const i = this.cell(c.x, c.z);
+        if (i < SIZE) blocked[i] = 1;
+      }
+    }
   }
 
   build(px: number, pz: number) {
+    this.ox = Math.round(px) - N / 2;
+    this.oz = Math.round(pz) - N / 2;
+    this.rasterize();
     const { dist, blocked, queue, dirX, dirZ } = this;
     dist.fill(INF);
     const start = this.cell(px, pz);

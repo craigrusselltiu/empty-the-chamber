@@ -1,14 +1,19 @@
 import * as THREE from 'three';
+import { cutout, cutBase } from './ps1';
 
-// Render height is fixed; width follows the window's aspect so there are no bars.
+// Characters render at a fixed 270 px height (pixel art); the environment renders at the full
+// window resolution. Width follows the window's aspect so there are no bars.
 export const H = 270;
 export const view = { w: 480, h: H };
-export const PPU = 20; // render pixels per world unit
+export const PPU = 20; // character render pixels per world unit
+export const CHAR_LAYER = 1; // player and enemies; everything else stays on layer 0
 export const YAW = Math.PI / 4;
 export const PITCH = (30 * Math.PI) / 180;
+export const CINE_PITCH = 0.05; // the run intro's low angle: nearly level, so the sky shows above the ground
+export const CINE_LIFT = 1.5; // the close-up frames the character low, with sky above
 const CAM_DIST = 80;
 
-// PS1 vertex snap grid (2 render px), shared by all world materials.
+// PS1 vertex snap grid, shared by all ps1() materials. Set per pass in render().
 export const snapRes = { value: new THREE.Vector2(240, H / 2) };
 
 const quadVert = /* glsl */ `
@@ -18,9 +23,12 @@ void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }
 
 const thresholdFrag = /* glsl */ `
 uniform sampler2D tSrc;
+uniform vec2 texel; // bloom target texel
 varying vec2 vUv;
 void main() {
-  vec3 c = texture2D(tSrc, vUv).rgb;
+  vec2 o = texel * 0.3;
+  vec3 c = 0.25 * (texture2D(tSrc, vUv + o).rgb + texture2D(tSrc, vUv - o).rgb
+    + texture2D(tSrc, vUv + vec2(o.x, -o.y)).rgb + texture2D(tSrc, vUv - vec2(o.x, -o.y)).rgb);
   float l = max(c.r, max(c.g, c.b));
   gl_FragColor = vec4(c * max(l - 0.9, 0.0) / max(l, 1e-4), 1.0);
 }
@@ -37,6 +45,18 @@ void main() {
   c += texture2D(tSrc, vUv + dir * 3.231).rgb * 0.070;
   c += texture2D(tSrc, vUv - dir * 3.231).rgb * 0.070;
   gl_FragColor = vec4(c, 1.0);
+}
+`;
+
+// The pixel layer (low res, nearest) over the map (full res). Opaque pixels write alpha 1;
+// additive effects add their colour on top.
+const compFrag = /* glsl */ `
+uniform sampler2D tEnv;
+uniform sampler2D tChar;
+varying vec2 vUv;
+void main() {
+  vec4 c = texture2D(tChar, vUv);
+  gl_FragColor = vec4(c.rgb + texture2D(tEnv, vUv).rgb * (1.0 - clamp(c.a, 0.0, 1.0)), 1.0);
 }
 `;
 
@@ -73,6 +93,8 @@ void main() {
 }
 `;
 
+const ZERO = new THREE.Vector3();
+
 function pass(frag: string, uniforms: Record<string, THREE.IUniform>) {
   const m = new THREE.ShaderMaterial({ vertexShader: quadVert, fragmentShader: frag, uniforms, depthTest: false, depthWrite: false });
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), m);
@@ -90,7 +112,11 @@ export class Pipeline {
   camUp = new THREE.Vector3();
   camBack = new THREE.Vector3(); // unit vector from target toward camera
   camFwdGround = new THREE.Vector3(); // ground direction that maps to screen up
+  scale = 1; // full-res pixels per character pixel
+  private rtEnv: THREE.WebGLRenderTarget;
+  private rtChar: THREE.WebGLRenderTarget;
   private rtScene: THREE.WebGLRenderTarget;
+  private comp;
   private rtA: THREE.WebGLRenderTarget;
   private rtB: THREE.WebGLRenderTarget;
   private thr;
@@ -108,14 +134,23 @@ export class Pipeline {
     this.renderer.setPixelRatio(1);
     this.renderer.setSize(view.w, H, false);
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.BasicShadowMap;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap; // filtered, soft-edged shadows
+    this.renderer.shadowMap.autoUpdate = false; // two passes per frame, one shadow update
+    this.renderer.setClearColor(0x000000, 0);
     this.renderer.toneMapping = THREE.NoToneMapping;
 
     const opts = { type: THREE.HalfFloatType, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter };
-    this.rtScene = new THREE.WebGLRenderTarget(view.w, H, { ...opts, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter });
+    const near = { type: THREE.HalfFloatType, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter };
+    this.rtEnv = new THREE.WebGLRenderTarget(view.w, H, near);
+    this.rtChar = new THREE.WebGLRenderTarget(view.w, H, near);
+    this.rtScene = new THREE.WebGLRenderTarget(view.w, H, near);
+    this.comp = pass(compFrag, {
+      tEnv: { value: this.rtEnv.texture },
+      tChar: { value: this.rtChar.texture },
+    });
     this.rtA = new THREE.WebGLRenderTarget(view.w / 3, H / 3, opts);
     this.rtB = new THREE.WebGLRenderTarget(view.w / 3, H / 3, opts);
-    this.thr = pass(thresholdFrag, { tSrc: { value: this.rtScene.texture } });
+    this.thr = pass(thresholdFrag, { tSrc: { value: this.rtScene.texture }, texel: { value: new THREE.Vector2() } });
     this.blur = pass(blurFrag, { tSrc: { value: null }, dir: { value: new THREE.Vector2() } });
     this.shadowTint = new THREE.Vector3(0.05, 0.0, 0.08);
     this.fin = pass(finalFrag, {
@@ -131,7 +166,8 @@ export class Pipeline {
 
     const hw = view.w / 2 / PPU;
     const hh = H / 2 / PPU;
-    this.camera = new THREE.OrthographicCamera(-hw, hw, hh, -hh, 1, 200);
+    // tight depth range (the scene spans ~20-140 from the camera) so close surfaces don't fight
+    this.camera = new THREE.OrthographicCamera(-hw, hw, hh, -hh, 15, 150);
     this.off = new THREE.Vector3(
       Math.sin(YAW) * Math.cos(PITCH) * CAM_DIST,
       Math.sin(PITCH) * CAM_DIST,
@@ -139,6 +175,7 @@ export class Pipeline {
     );
     this.camera.position.copy(this.off);
     this.camera.lookAt(0, 0, 0);
+    this.baseQuat.copy(this.camera.quaternion);
     this.camera.updateMatrixWorld();
     this.camRight.setFromMatrixColumn(this.camera.matrixWorld, 0);
     this.camUp.setFromMatrixColumn(this.camera.matrixWorld, 1);
@@ -146,38 +183,71 @@ export class Pipeline {
     this.camFwdGround.set(-this.off.x, 0, -this.off.z).normalize();
   }
 
-  // Match the render width to a window aspect ratio (height stays 270).
-  resize(aspect: number) {
-    const w = Math.max(320, Math.min(760, Math.round((H * aspect) / 2) * 2));
-    if (w === view.w) return;
+  // Size to the window in device pixels. Characters keep a 270 px height, width from the aspect.
+  resize(fw: number, fh: number) {
+    const w = Math.max(320, Math.min(760, Math.round((H * fw) / fh / 2) * 2));
     view.w = w;
-    this.renderer.setSize(w, H, false);
-    this.rtScene.setSize(w, H);
+    this.scale = fh / H;
+    this.renderer.setSize(fw, fh, false);
+    this.rtEnv.setSize(fw, fh);
+    this.rtScene.setSize(fw, fh);
+    this.rtChar.setSize(w, H);
     this.rtA.setSize(Math.floor(w / 3), H / 3);
     this.rtB.setSize(Math.floor(w / 3), H / 3);
     this.camera.left = -w / 2 / PPU;
     this.camera.right = w / 2 / PPU;
     this.camera.updateProjectionMatrix();
-    snapRes.value.set(w / 2, H / 2);
   }
 
-  // Snap a world point so it lands on whole render pixels on screen.
-  snap(p: THREE.Vector3) {
-    const tx = p.dot(this.camRight);
-    const ty = p.dot(this.camUp);
-    const sx = Math.round(tx * PPU) / PPU - tx;
-    const sy = Math.round(ty * PPU) / PPU - ty;
-    p.addScaledVector(this.camRight, sx).addScaledVector(this.camUp, sy);
+  // Snap a world point so it lands on whole pixels of a grid with `ppu` pixels per unit, relative to `origin`.
+  private snapTo(p: THREE.Vector3, origin: THREE.Vector3, ppu: number) {
+    const tx = (p.x - origin.x) * this.camRight.x + (p.y - origin.y) * this.camRight.y + (p.z - origin.z) * this.camRight.z;
+    const ty = (p.x - origin.x) * this.camUp.x + (p.y - origin.y) * this.camUp.y + (p.z - origin.z) * this.camUp.z;
+    p.addScaledVector(this.camRight, Math.round(tx * ppu) / ppu - tx).addScaledVector(this.camUp, Math.round(ty * ppu) / ppu - ty);
     return p;
   }
 
+  // Snap a world point to whole character pixels on screen (call after setTarget).
+  snap(p: THREE.Vector3) {
+    return this.snapTo(p, this.camTarget, PPU);
+  }
+
+  // Cinematic close-up blend for the run intro: 0 = gameplay camera, 1 = close on the target from a
+  // lower, side-on angle, zoomed in 3x (a whole number, so sprite texels stay square).
+  cine = 0;
+  cineYaw = 0.55; // orbit of the close-up, picked per run for a clear view
+  viewBack = new THREE.Vector3(); // toward the camera actually in use (gameplay or intro)
+  private baseQuat = new THREE.Quaternion();
+  private look = new THREE.Vector3();
+
   setTarget(x: number, z: number, t: number) {
+    const cam = this.camera;
+    if (this.cine > 0) {
+      const k = this.cine;
+      const pitch = PITCH + (CINE_PITCH - PITCH) * k;
+      const yaw = YAW + this.cineYaw * k;
+      this.camTarget.set(x, 0, z);
+      this.look.set(x, CINE_LIFT * k, z);
+      cam.position.set(Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch)).multiplyScalar(CAM_DIST).add(this.look);
+      cam.lookAt(this.look);
+      this.viewBack.copy(cam.position).sub(this.look).normalize();
+      cam.zoom = Math.exp(Math.log(3) * k);
+      cam.updateProjectionMatrix();
+      cam.updateMatrixWorld();
+      return;
+    }
+    if (cam.zoom !== 1) {
+      cam.zoom = 1;
+      cam.updateProjectionMatrix();
+    }
+    cam.quaternion.copy(this.baseQuat);
+    this.viewBack.copy(this.camBack);
     const p = this.camTarget.set(x, 0, z);
     if (this.shake > 0) {
       const s = Math.min(this.shake, 1) * 0.3;
       p.addScaledVector(this.camRight, Math.sin(t * 91) * s).addScaledVector(this.camUp, Math.cos(t * 73) * s);
     }
-    this.snap(p);
+    this.snapTo(p, ZERO, PPU * this.scale);
     this.camera.position.copy(p).add(this.off);
     this.camera.updateMatrixWorld();
   }
@@ -194,8 +264,40 @@ export class Pipeline {
 
   render(scene: THREE.Scene, bloom: number) {
     const r = this.renderer;
+    const cam = this.camera;
+    const cb = cutBase;
+    const s = this.scale;
+    r.shadowMap.needsUpdate = true;
+    // map: full res, a fine PS1 vertex wobble
+    snapRes.value.set(view.w, H);
+    cutout.value.set(cb.x * s, cb.y * s, cb.z, cb.w * s);
+    cam.layers.set(0);
+    r.setRenderTarget(this.rtEnv);
+    r.render(scene, cam);
+    // pixel layer at 270 px: the map's depth only (so it still hides what is behind it), then
+    // characters and effects over a transparent background
+    snapRes.value.set(view.w / 2, H / 2);
+    cutout.value.copy(cb);
+    const bg = scene.background;
+    scene.background = null;
+    r.setRenderTarget(this.rtChar);
+    r.setClearColor(0x000000, 0); // the map pass left the background colour as the clear colour
+    r.clear();
+    r.autoClear = false;
+    const color = r.state.buffers.color;
+    color.setMask(false);
+    color.setLocked(true);
+    r.render(scene, cam);
+    color.setLocked(false);
+    color.setMask(true);
+    cam.layers.set(CHAR_LAYER);
+    r.render(scene, cam);
+    r.autoClear = true;
+    scene.background = bg;
+    cam.layers.set(0);
     r.setRenderTarget(this.rtScene);
-    r.render(scene, this.camera);
+    r.render(this.comp.scene, this.orthoCam);
+    this.thr.m.uniforms.texel.value.set(1 / this.rtA.width, 1 / this.rtA.height);
     r.setRenderTarget(this.rtA);
     r.render(this.thr.scene, this.orthoCam);
     const bu = this.blur.m.uniforms;
